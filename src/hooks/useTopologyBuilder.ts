@@ -1,10 +1,10 @@
 // ─── Topology builder state (useReducer-based) ────────────────────────────────
-// Manages: component placement, wiring, selection, properties, undo/redo.
+// Manages: component placement, wiring, selection, undo/redo, move, rotation.
 
 import { useReducer, useCallback } from 'react';
 import {
   GraphTopology, GComponent, GWire, GPort,
-  GCompType, GCompRole, GComponentProps, GBreakerState,
+  GCompType, GCompRole, GComponentProps,
 } from '../engine/graphTopology';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -20,12 +20,14 @@ export interface WireStart {
 
 export interface BuilderState {
   topo: GraphTopology;
-  selectedId: string | null;
+  selectedId: string | null;       // primary selection (wire OR comp)
+  selectedIds: string[];           // all selected component IDs (for multi-select)
   placingType: PlacingType;
+  ghostRotation: number;           // 0 | 90 | 180 | 270 — ghost rotation before placement
   wireStart: WireStart | null;
-  ghostPos: { x: number; y: number } | null; // grid units, for placement ghost
-  history: GraphTopology[];   // undo stack (before current)
-  future:  GraphTopology[];   // redo stack
+  ghostPos: { x: number; y: number } | null;
+  history: GraphTopology[];
+  future:  GraphTopology[];
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -35,12 +37,17 @@ type Action =
   | { type: 'SET_GHOST'; pos: { x: number; y: number } | null }
   | { type: 'PLACE_COMPONENT'; comp: GComponent }
   | { type: 'SELECT'; id: string | null }
+  | { type: 'SELECT_TOGGLE'; id: string }
+  | { type: 'SELECT_BOX'; ids: string[] }
   | { type: 'DELETE_SELECTED' }
   | { type: 'UPDATE_COMP_PROPS'; id: string; patch: Partial<GComponentProps> }
   | { type: 'UPDATE_COMP_TAG'; id: string; tag: string }
   | { type: 'UPDATE_COMP_ROLE'; id: string; role: GCompRole }
   | { type: 'TOGGLE_PORT'; compId: string; portId: string }
-  | { type: 'ROTATE_COMP'; id: string }
+  | { type: 'ROTATE_COMP'; id: string; clockwise?: boolean }
+  | { type: 'ROTATE_GHOST'; clockwise?: boolean }
+  | { type: 'MOVE_COMP'; id: string; x: number; y: number }
+  | { type: 'MOVE_MULTI'; moves: Array<{ id: string; x: number; y: number }> }
   | { type: 'START_WIRE'; start: WireStart }
   | { type: 'FINISH_WIRE'; toCompId: string; toPortId: string; toWx: number; toWy: number }
   | { type: 'CANCEL_WIRE' }
@@ -50,13 +57,68 @@ type Action =
   | { type: 'LOAD_TOPO'; topo: GraphTopology }
   | { type: 'SET_CANVAS'; w: number; h: number };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 let _seq = 0;
 function uid(prefix: string): string { return `${prefix}-${Date.now()}-${++_seq}`; }
 
 function pushHistory(s: BuilderState, current: GraphTopology): BuilderState {
   return { ...s, history: [...s.history.slice(-49), current], future: [] };
+}
+
+/** Rotate a port dx/dy vector 90° CW or CCW in screen space (y-down).
+ *  CW:  (dx, dy) → (-dy,  dx)   e.g. (1,0)→(0,1) [right→down]
+ *  CCW: (dx, dy) → ( dy, -dx)   e.g. (1,0)→(0,-1)[right→up]
+ */
+function rotateVec(dx: number, dy: number, clockwise: boolean): { dx: number; dy: number } {
+  if (clockwise) return { dx: -dy, dy: dx };
+  return { dx: dy, dy: -dx };
+}
+
+function rotatePorts(ports: GPort[], clockwise: boolean): GPort[] {
+  return ports.map(p => {
+    const { dx, dy } = rotateVec(p.dx, p.dy, clockwise);
+    return { ...p, dx, dy };
+  });
+}
+
+/** Re-route all wires that touch the given component ID, using updated comps. */
+function rerouteWiresForComp(wires: GWire[], comps: GComponent[], compId: string): GWire[] {
+  return wires.map(w => {
+    if (w.fromCompId !== compId && w.toCompId !== compId) return w;
+    const fc = comps.find(c => c.id === w.fromCompId);
+    const tc = comps.find(c => c.id === w.toCompId);
+    if (!fc || !tc) return w;
+    const fp = fc.ports.find(p => p.id === w.fromPortId);
+    const tp = tc.ports.find(p => p.id === w.toPortId);
+    if (!fp || !tp) return w;
+    return { ...w, segments: routeWire(fc.x + fp.dx, fc.y + fp.dy, tc.x + tp.dx, tc.y + tp.dy) };
+  });
+}
+
+/** Re-route all wires that touch any of the given component IDs. */
+function rerouteWiresForComps(wires: GWire[], comps: GComponent[], compIds: string[]): GWire[] {
+  const affected = new Set(compIds);
+  return wires.map(w => {
+    if (!affected.has(w.fromCompId) && !affected.has(w.toCompId)) return w;
+    const fc = comps.find(c => c.id === w.fromCompId);
+    const tc = comps.find(c => c.id === w.toCompId);
+    if (!fc || !tc) return w;
+    const fp = fc.ports.find(p => p.id === w.fromPortId);
+    const tp = tc.ports.find(p => p.id === w.toPortId);
+    if (!fp || !tp) return w;
+    return { ...w, segments: routeWire(fc.x + fp.dx, fc.y + fp.dy, tc.x + tp.dx, tc.y + tp.dy) };
+  });
+}
+
+/** Generate orthogonal wire segments (horizontal-first elbow). */
+export function routeWire(x1: number, y1: number, x2: number, y2: number): GWire['segments'] {
+  if (x1 === x2) return [{ x1, y1, x2, y2 }];
+  if (y1 === y2) return [{ x1, y1, x2, y2 }];
+  return [
+    { x1, y1, x2, y2: y1 },
+    { x1: x2, y1, x2, y2 },
+  ];
 }
 
 function defaultPorts(type: GCompType, portCount = 2): GPort[] {
@@ -107,42 +169,25 @@ function defaultProps(type: GCompType): GComponentProps {
 
 function defaultAnsi(type: GCompType): string {
   switch (type) {
-    case 'SOURCE':    return '';
-    case 'BREAKER':   return '52';
-    case 'CONTACTOR': return '';
+    case 'BREAKER':      return '52';
     case 'NPORT_SWITCH': return 'ATS';
-    case 'BUS':       return '';
-    case 'LOAD':      return '';
-    case 'GROUND':    return '';
-    default:          return '';
+    default:             return '';
   }
 }
 
 function defaultTag(type: GCompType, idx: number): string {
   switch (type) {
-    case 'SOURCE':    return `SRC-${idx}`;
-    case 'BREAKER':   return `52-${idx}`;
-    case 'CONTACTOR': return `K${idx}`;
+    case 'SOURCE':       return `SRC-${idx}`;
+    case 'BREAKER':      return `52-${idx}`;
+    case 'CONTACTOR':    return `K${idx}`;
     case 'NPORT_SWITCH': return `ATS-${idx}`;
-    case 'BUS':       return `BUS-${idx}`;
-    case 'LOAD':      return `LOAD-${idx}`;
-    case 'GROUND':    return `GND-${idx}`;
-    default:          return `COMP-${idx}`;
+    case 'BUS':          return `BUS-${idx}`;
+    case 'LOAD':         return `LOAD-${idx}`;
+    case 'GROUND':       return `GND-${idx}`;
+    default:             return `COMP-${idx}`;
   }
 }
 
-/** Generate simple orthogonal wire segments between two grid points. */
-function routeWire(x1: number, y1: number, x2: number, y2: number): GWire['segments'] {
-  if (x1 === x2) return [{ x1, y1, x2, y2 }];
-  if (y1 === y2) return [{ x1, y1, x2, y2 }];
-  // Elbow: horizontal first, then vertical
-  return [
-    { x1, y1, x2, y2: y1 },
-    { x1: x2, y1, x2, y2 },
-  ];
-}
-
-/** Remove a wire ID from a port's connectedWireIds list. */
 function removeWireFromPort(topo: GraphTopology, wireId: string): GraphTopology {
   return {
     ...topo,
@@ -162,7 +207,14 @@ function reducer(state: BuilderState, action: Action): BuilderState {
   switch (action.type) {
 
     case 'SET_PLACING':
-      return { ...state, placingType: action.compType, wireStart: null, selectedId: null };
+      return {
+        ...state,
+        placingType: action.compType,
+        wireStart: null,
+        selectedId: null,
+        selectedIds: [],
+        ghostRotation: 0,
+      };
 
     case 'SET_GHOST':
       return { ...state, ghostPos: action.pos };
@@ -174,18 +226,50 @@ function reducer(state: BuilderState, action: Action): BuilderState {
         topo: { ...state.topo, components: [...state.topo.components, action.comp] },
         placingType: null,
         ghostPos: null,
+        ghostRotation: 0,
         selectedId: action.comp.id,
+        selectedIds: [action.comp.id],
       };
     }
 
     case 'SELECT':
-      return { ...state, selectedId: action.id, placingType: null, wireStart: null };
+      return {
+        ...state,
+        selectedId: action.id,
+        selectedIds: action.id ? [action.id] : [],
+        placingType: null,
+        wireStart: null,
+      };
+
+    case 'SELECT_TOGGLE': {
+      const already = state.selectedIds.includes(action.id);
+      const newIds = already
+        ? state.selectedIds.filter(i => i !== action.id)
+        : [...state.selectedIds, action.id];
+      return {
+        ...state,
+        selectedIds: newIds,
+        selectedId: newIds.length > 0 ? newIds[newIds.length - 1] : null,
+        placingType: null,
+        wireStart: null,
+      };
+    }
+
+    case 'SELECT_BOX': {
+      const { ids } = action;
+      return {
+        ...state,
+        selectedIds: ids,
+        selectedId: ids.length > 0 ? ids[ids.length - 1] : null,
+        placingType: null,
+        wireStart: null,
+      };
+    }
 
     case 'DELETE_SELECTED': {
       if (!state.selectedId) return state;
       const id = state.selectedId;
       const saved = pushHistory(state, state.topo);
-      // Remove wires connected to deleted component, then clean port refs
       const affectedWires = state.topo.wires.filter(
         w => w.fromCompId === id || w.toCompId === id
       );
@@ -198,7 +282,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
         components: topo.components.filter(c => c.id !== id),
         wires: topo.wires.filter(w => w.fromCompId !== id && w.toCompId !== id),
       };
-      return { ...saved, topo, selectedId: null };
+      return { ...saved, topo, selectedId: null, selectedIds: [] };
     }
 
     case 'UPDATE_COMP_PROPS': {
@@ -248,12 +332,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
           ...state.topo,
           components: state.topo.components.map(c =>
             c.id === action.compId
-              ? {
-                  ...c,
-                  ports: c.ports.map(p =>
-                    p.id === action.portId ? { ...p, enabled: !p.enabled } : p
-                  ),
-                }
+              ? { ...c, ports: c.ports.map(p => p.id === action.portId ? { ...p, enabled: !p.enabled } : p) }
               : c
           ),
         },
@@ -261,31 +340,64 @@ function reducer(state: BuilderState, action: Action): BuilderState {
     }
 
     case 'ROTATE_COMP': {
+      const clockwise = action.clockwise !== false;
       const saved = pushHistory(state, state.topo);
-      return {
-        ...saved,
-        topo: {
-          ...state.topo,
-          components: state.topo.components.map(c =>
-            c.id === action.id ? { ...c, rotation: (c.rotation + 90) % 360 } : c
-          ),
-        },
-      };
+      const updatedComps = state.topo.components.map(c => {
+        if (c.id !== action.id) return c;
+        const newRotation = clockwise
+          ? (c.rotation + 90) % 360
+          : (c.rotation + 270) % 360;
+        return { ...c, rotation: newRotation, ports: rotatePorts(c.ports, clockwise) };
+      });
+      const updatedWires = rerouteWiresForComp(state.topo.wires, updatedComps, action.id);
+      return { ...saved, topo: { ...state.topo, components: updatedComps, wires: updatedWires } };
+    }
+
+    case 'ROTATE_GHOST': {
+      const clockwise = action.clockwise !== false;
+      const newRot = clockwise
+        ? (state.ghostRotation + 90) % 360
+        : (state.ghostRotation + 270) % 360;
+      return { ...state, ghostRotation: newRot };
+    }
+
+    case 'MOVE_COMP': {
+      const { id, x, y } = action;
+      // Reject if another component occupies the same center
+      const collision = state.topo.components.some(c => c.id !== id && c.x === x && c.y === y);
+      if (collision) return state;
+      const saved = pushHistory(state, state.topo);
+      const updatedComps = state.topo.components.map(c => c.id === id ? { ...c, x, y } : c);
+      const updatedWires = rerouteWiresForComp(state.topo.wires, updatedComps, id);
+      return { ...saved, topo: { ...state.topo, components: updatedComps, wires: updatedWires } };
+    }
+
+    case 'MOVE_MULTI': {
+      const { moves } = action;
+      const movedIds = new Set(moves.map(m => m.id));
+      const staticComps = state.topo.components.filter(c => !movedIds.has(c.id));
+      // Collision: any moved comp landing on a static comp's center
+      const collision = moves.some(m => staticComps.some(c => c.x === m.x && c.y === m.y));
+      if (collision) return state;
+      const saved = pushHistory(state, state.topo);
+      const posMap = new Map(moves.map(m => [m.id, { x: m.x, y: m.y }]));
+      const updatedComps = state.topo.components.map(c => {
+        const pos = posMap.get(c.id);
+        return pos ? { ...c, ...pos } : c;
+      });
+      const updatedWires = rerouteWiresForComps(state.topo.wires, updatedComps, moves.map(m => m.id));
+      return { ...saved, topo: { ...state.topo, components: updatedComps, wires: updatedWires } };
     }
 
     case 'START_WIRE':
-      return { ...state, wireStart: action.start, selectedId: null };
+      return { ...state, wireStart: action.start, selectedId: null, selectedIds: [] };
 
     case 'FINISH_WIRE': {
       const { wireStart } = state;
       if (!wireStart) return state;
-      if (
-        wireStart.compId === action.toCompId &&
-        wireStart.portId === action.toPortId
-      ) {
+      if (wireStart.compId === action.toCompId && wireStart.portId === action.toPortId) {
         return { ...state, wireStart: null };
       }
-      // Prevent duplicate wires
       const dup = state.topo.wires.some(
         w =>
           (w.fromCompId === wireStart.compId && w.fromPortId === wireStart.portId &&
@@ -299,10 +411,8 @@ function reducer(state: BuilderState, action: Action): BuilderState {
       const segments = routeWire(wireStart.wx, wireStart.wy, action.toWx, action.toWy);
       const newWire: GWire = {
         id: wireId,
-        fromCompId: wireStart.compId,
-        fromPortId: wireStart.portId,
-        toCompId:   action.toCompId,
-        toPortId:   action.toPortId,
+        fromCompId: wireStart.compId, fromPortId: wireStart.portId,
+        toCompId: action.toCompId,   toPortId: action.toPortId,
         segments,
       };
       const saved = pushHistory(state, state.topo);
@@ -329,7 +439,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
       const saved = pushHistory(state, state.topo);
       let topo = removeWireFromPort(state.topo, action.wireId);
       topo = { ...topo, wires: topo.wires.filter(w => w.id !== action.wireId) };
-      return { ...saved, topo, selectedId: null };
+      return { ...saved, topo, selectedId: null, selectedIds: [] };
     }
 
     case 'UNDO': {
@@ -340,7 +450,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
         topo: prev,
         history: state.history.slice(0, -1),
         future:  [state.topo, ...state.future.slice(0, 49)],
-        selectedId: null,
+        selectedId: null, selectedIds: [],
       };
     }
 
@@ -352,12 +462,18 @@ function reducer(state: BuilderState, action: Action): BuilderState {
         topo: next,
         history: [...state.history.slice(-49), state.topo],
         future:  state.future.slice(1),
-        selectedId: null,
+        selectedId: null, selectedIds: [],
       };
     }
 
     case 'LOAD_TOPO':
-      return { ...state, topo: action.topo, selectedId: null, history: [], future: [], wireStart: null, placingType: null };
+      return {
+        ...state,
+        topo: action.topo,
+        selectedId: null, selectedIds: [],
+        history: [], future: [],
+        wireStart: null, placingType: null, ghostRotation: 0,
+      };
 
     case 'SET_CANVAS':
       return { ...state, topo: { ...state.topo, canvasW: action.w, canvasH: action.h } };
@@ -385,15 +501,17 @@ export function useTopologyBuilder() {
   const [state, dispatch] = useReducer(reducer, {
     topo: makeEmptyTopo(),
     selectedId: null,
+    selectedIds: [],
     placingType: null,
+    ghostRotation: 0,
     wireStart: null,
     ghostPos: null,
     history: [],
     future: [],
   });
 
-  // ── Component count (used for default tags)
   const compCount = state.topo.components.length;
+  const ghostRotation = state.ghostRotation;
 
   const startPlacing = useCallback((type: GCompType) => {
     dispatch({ type: 'SET_PLACING', compType: type });
@@ -405,7 +523,15 @@ export function useTopologyBuilder() {
 
   const placeComponent = useCallback((x: number, y: number, compType: GCompType) => {
     const idx = compCount + 1;
-    const portCount = compType === 'NPORT_SWITCH' ? 2 : 2;
+    // Apply ghost rotation to ports before placing
+    let ports = defaultPorts(compType, 2);
+    const steps = ghostRotation / 90;
+    for (let i = 0; i < steps; i++) {
+      ports = ports.map(p => {
+        const { dx, dy } = rotateVec(p.dx, p.dy, true);
+        return { ...p, dx, dy };
+      });
+    }
     const comp: GComponent = {
       id:         uid(compType.toLowerCase()),
       type:       compType,
@@ -413,16 +539,24 @@ export function useTopologyBuilder() {
       tag:        defaultTag(compType, idx),
       ansiNumber: defaultAnsi(compType),
       x, y,
-      rotation:   0,
-      ports:      defaultPorts(compType, portCount),
+      rotation:   ghostRotation,
+      ports,
       props:      defaultProps(compType),
     };
     dispatch({ type: 'PLACE_COMPONENT', comp });
-  }, [compCount]);
+  }, [compCount, ghostRotation]);
 
-  const select = useCallback((id: string | null) => dispatch({ type: 'SELECT', id }), []);
+  const select = useCallback((id: string | null) =>
+    dispatch({ type: 'SELECT', id }), []);
 
-  const deleteSelected = useCallback(() => dispatch({ type: 'DELETE_SELECTED' }), []);
+  const selectToggle = useCallback((id: string) =>
+    dispatch({ type: 'SELECT_TOGGLE', id }), []);
+
+  const selectBox = useCallback((ids: string[]) =>
+    dispatch({ type: 'SELECT_BOX', ids }), []);
+
+  const deleteSelected = useCallback(() =>
+    dispatch({ type: 'DELETE_SELECTED' }), []);
 
   const updateProps = useCallback((id: string, patch: Partial<GComponentProps>) => {
     dispatch({ type: 'UPDATE_COMP_PROPS', id, patch });
@@ -440,9 +574,20 @@ export function useTopologyBuilder() {
     dispatch({ type: 'TOGGLE_PORT', compId, portId });
   }, []);
 
-  const rotateComp = useCallback((id: string) => dispatch({ type: 'ROTATE_COMP', id }), []);
+  const rotateComp = useCallback((id: string, clockwise = true) =>
+    dispatch({ type: 'ROTATE_COMP', id, clockwise }), []);
 
-  const startWire = useCallback((start: WireStart) => dispatch({ type: 'START_WIRE', start }), []);
+  const rotateGhost = useCallback((clockwise = true) =>
+    dispatch({ type: 'ROTATE_GHOST', clockwise }), []);
+
+  const moveComp = useCallback((id: string, x: number, y: number) =>
+    dispatch({ type: 'MOVE_COMP', id, x, y }), []);
+
+  const moveMulti = useCallback((moves: Array<{ id: string; x: number; y: number }>) =>
+    dispatch({ type: 'MOVE_MULTI', moves }), []);
+
+  const startWire = useCallback((start: WireStart) =>
+    dispatch({ type: 'START_WIRE', start }), []);
 
   const finishWire = useCallback((toCompId: string, toPortId: string, toWx: number, toWy: number) => {
     dispatch({ type: 'FINISH_WIRE', toCompId, toPortId, toWx, toWy });
@@ -450,16 +595,17 @@ export function useTopologyBuilder() {
 
   const cancelWire = useCallback(() => dispatch({ type: 'CANCEL_WIRE' }), []);
 
-  const deleteWire = useCallback((wireId: string) => dispatch({ type: 'DELETE_WIRE', wireId }), []);
+  const deleteWire = useCallback((wireId: string) =>
+    dispatch({ type: 'DELETE_WIRE', wireId }), []);
 
   const undo = useCallback(() => dispatch({ type: 'UNDO' }), []);
   const redo = useCallback(() => dispatch({ type: 'REDO' }), []);
 
-  const loadTopo = useCallback((topo: GraphTopology) => dispatch({ type: 'LOAD_TOPO', topo }), []);
+  const loadTopo = useCallback((topo: GraphTopology) =>
+    dispatch({ type: 'LOAD_TOPO', topo }), []);
 
-  const saveJSON = useCallback((): string => {
-    return JSON.stringify(state.topo, null, 2);
-  }, [state.topo]);
+  const saveJSON = useCallback((): string =>
+    JSON.stringify(state.topo, null, 2), [state.topo]);
 
   const loadJSON = useCallback((json: string): boolean => {
     try {
@@ -486,9 +632,11 @@ export function useTopologyBuilder() {
     dispatch,
     actions: {
       startPlacing, setGhost, placeComponent,
-      select, deleteSelected,
+      select, selectToggle, selectBox,
+      deleteSelected,
       updateProps, updateTag, updateRole,
-      togglePort, rotateComp,
+      togglePort, rotateComp, rotateGhost,
+      moveComp, moveMulti,
       startWire, finishWire, cancelWire, deleteWire,
       undo, redo,
       loadTopo, saveJSON, loadJSON,

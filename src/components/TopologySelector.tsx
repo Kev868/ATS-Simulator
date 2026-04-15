@@ -93,44 +93,47 @@ function MTMSvg() {
 }
 
 function MMMSvg() {
+  // Compact layout — fits viewBox 260×82 at width 240 without clipping
   return (
-    <svg viewBox="0 0 400 90" width="360" height="90">
+    <svg viewBox="0 0 260 82" width="240" height="76">
       {/* M1 */}
-      <circle cx="20" cy="45" r="12" fill="none" stroke="#22c55e" strokeWidth="2" />
-      <text x="20" y="49" textAnchor="middle" fill="#22c55e" fontSize="10" fontWeight="bold">M1</text>
-      <line x1="32" y1="45" x2="50" y2="45" stroke="#94a3b8" strokeWidth="2" />
-      <rect x="50" y="38" width="12" height="12" fill="#22c55e" rx="2" />
-      <line x1="62" y1="45" x2="78" y2="45" stroke="#94a3b8" strokeWidth="2" />
-      {/* Bus1 */}
-      <rect x="78" y="40" width="50" height="10" fill="#22c55e" rx="2" />
-      <text x="103" y="32" textAnchor="middle" fill="#94a3b8" fontSize="8">BUS1</text>
-      <line x1="103" y1="50" x2="103" y2="62" stroke="#94a3b8" strokeWidth="1.2" />
-      <path d="M97,62 Q101,57 105,62 Q109,67 113,62" fill="none" stroke="#f59e0b" strokeWidth="1.2" />
+      <circle cx="12" cy="41" r="9" fill="none" stroke="#22c55e" strokeWidth="2" />
+      <text x="12" y="45" textAnchor="middle" fill="#22c55e" fontSize="8" fontWeight="bold">M1</text>
+      <line x1="21" y1="41" x2="33" y2="41" stroke="#94a3b8" strokeWidth="1.5" />
+      <rect x="33" y="36" width="10" height="10" fill="#22c55e" rx="1" />
+      <line x1="43" y1="41" x2="55" y2="41" stroke="#94a3b8" strokeWidth="1.5" />
+      {/* BUS1 */}
+      <rect x="55" y="37" width="30" height="8" fill="#22c55e" rx="1" />
+      <text x="70" y="30" textAnchor="middle" fill="#94a3b8" fontSize="7">BUS1</text>
+      <line x1="70" y1="45" x2="70" y2="56" stroke="#94a3b8" strokeWidth="1" />
+      <path d="M66,56 Q70,52 74,56 Q78,60 82,56" fill="none" stroke="#f59e0b" strokeWidth="1" />
       {/* T1 */}
-      <line x1="128" y1="45" x2="140" y2="45" stroke="#94a3b8" strokeWidth="2" />
-      <rect x="140" y="38" width="12" height="12" fill="#475569" rx="2" />
-      <line x1="152" y1="45" x2="168" y2="45" stroke="#94a3b8" strokeWidth="2" strokeDasharray="3,2" />
-      {/* Bus2 */}
-      <rect x="168" y="40" width="50" height="10" fill="#3b82f6" rx="2" />
-      <text x="193" y="32" textAnchor="middle" fill="#94a3b8" fontSize="8">BUS2</text>
-      <line x1="193" y1="50" x2="193" y2="62" stroke="#94a3b8" strokeWidth="1.2" />
-      <path d="M187,62 Q191,57 195,62 Q199,67 203,62" fill="none" stroke="#f59e0b" strokeWidth="1.2" />
+      <line x1="85" y1="41" x2="95" y2="41" stroke="#94a3b8" strokeWidth="1.5" />
+      <rect x="95" y="36" width="10" height="10" fill="#475569" rx="1" />
+      <text x="100" y="44" textAnchor="middle" fill="#94a3b8" fontSize="6">T1</text>
+      <line x1="105" y1="41" x2="115" y2="41" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="3,2" />
+      {/* BUS2 */}
+      <rect x="115" y="37" width="30" height="8" fill="#3b82f6" rx="1" />
+      <text x="130" y="30" textAnchor="middle" fill="#94a3b8" fontSize="7">BUS2</text>
+      <line x1="130" y1="45" x2="130" y2="56" stroke="#94a3b8" strokeWidth="1" />
+      <path d="M126,56 Q130,52 134,56 Q138,60 142,56" fill="none" stroke="#f59e0b" strokeWidth="1" />
       {/* T2 */}
-      <line x1="218" y1="45" x2="230" y2="45" stroke="#94a3b8" strokeWidth="2" />
-      <rect x="230" y="38" width="12" height="12" fill="#475569" rx="2" />
-      <line x1="242" y1="45" x2="258" y2="45" stroke="#94a3b8" strokeWidth="2" strokeDasharray="3,2" />
-      {/* Bus3 */}
-      <rect x="258" y="40" width="50" height="10" fill="#334155" rx="2" />
-      <text x="283" y="32" textAnchor="middle" fill="#94a3b8" fontSize="8">BUS3</text>
-      <line x1="283" y1="50" x2="283" y2="62" stroke="#94a3b8" strokeWidth="1.2" />
-      <path d="M277,62 Q281,57 285,62 Q289,67 293,62" fill="none" stroke="#f59e0b" strokeWidth="1.2" />
+      <line x1="145" y1="41" x2="155" y2="41" stroke="#94a3b8" strokeWidth="1.5" />
+      <rect x="155" y="36" width="10" height="10" fill="#475569" rx="1" />
+      <text x="160" y="44" textAnchor="middle" fill="#94a3b8" fontSize="6">T2</text>
+      <line x1="165" y1="41" x2="175" y2="41" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="3,2" />
+      {/* BUS3 */}
+      <rect x="175" y="37" width="30" height="8" fill="#334155" rx="1" />
+      <text x="190" y="30" textAnchor="middle" fill="#94a3b8" fontSize="7">BUS3</text>
+      <line x1="190" y1="45" x2="190" y2="56" stroke="#94a3b8" strokeWidth="1" />
+      <path d="M186,56 Q190,52 194,56 Q198,60 202,56" fill="none" stroke="#f59e0b" strokeWidth="1" />
       {/* 52-M3 */}
-      <line x1="308" y1="45" x2="320" y2="45" stroke="#94a3b8" strokeWidth="2" />
-      <rect x="320" y="38" width="12" height="12" fill="#475569" rx="2" />
-      <line x1="332" y1="45" x2="350" y2="45" stroke="#94a3b8" strokeWidth="2" strokeDasharray="3,2" />
+      <line x1="205" y1="41" x2="215" y2="41" stroke="#94a3b8" strokeWidth="1.5" />
+      <rect x="215" y="36" width="10" height="10" fill="#475569" rx="1" />
+      <line x1="225" y1="41" x2="237" y2="41" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="3,2" />
       {/* M3 */}
-      <circle cx="368" cy="45" r="12" fill="none" stroke="#a855f7" strokeWidth="2" />
-      <text x="368" y="49" textAnchor="middle" fill="#a855f7" fontSize="10" fontWeight="bold">M3</text>
+      <circle cx="248" cy="41" r="9" fill="none" stroke="#a855f7" strokeWidth="2" />
+      <text x="248" y="45" textAnchor="middle" fill="#a855f7" fontSize="8" fontWeight="bold">M3</text>
     </svg>
   );
 }
@@ -226,8 +229,6 @@ export default function TopologySelector({ onSelect, onCustom }: Props) {
             </div>
           </div>
         </div>
-      </div>
-
         {/* Custom topology builder */}
         <div
           style={{
@@ -258,8 +259,8 @@ export default function TopologySelector({ onSelect, onCustom }: Props) {
             <text x={120} y={50} fill="#475569" fontSize="9" fontFamily="monospace">BUS-A</text>
           </svg>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#94a3b8', fontWeight: 600, fontSize: '1.1rem' }}>Build Custom Topology</div>
-            <div style={{ color: '#475569', fontSize: '0.85rem', marginTop: '6px' }}>
+            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '1.1rem' }}>Build Custom Topology</div>
+            <div style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '6px' }}>
               Grid-based drag-and-drop editor.<br />
               Place sources, breakers, buses and wires.
             </div>
