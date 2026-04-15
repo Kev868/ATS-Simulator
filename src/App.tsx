@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Topology } from './engine/types';
 import { GraphTopology } from './engine/graphTopology';
 import { useSimulation } from './hooks/useSimulation';
-import TopologySelector from './components/TopologySelector';
+import TopologyMenu from './components/TopologyMenu';
 import TopologyBuilder from './components/TopologyBuilder';
 import OneLine from './components/OneLine';
 import SourcePanel from './components/SourcePanel';
@@ -12,11 +12,12 @@ import SimControls from './components/SimControls';
 import ScenarioSelector from './components/ScenarioSelector';
 import './App.css';
 
-type AppView = 'SELECT' | 'BUILD' | 'SIM';
+type AppView = 'MENU' | 'BUILD' | 'SIM';
 
 export default function App() {
-  const [view, setView] = useState<AppView>('SELECT');
+  const [view, setView] = useState<AppView>('MENU');
   const [topology, setTopology] = useState<Topology | null>(null);
+  const [initialBuilderTopo, setInitialBuilderTopo] = useState<GraphTopology | null>(null);
   const sim = useSimulation();
 
   // ── Topology selection (preset) ────────────────────────────────────────────
@@ -26,24 +27,26 @@ export default function App() {
     setView('SIM');
   };
 
+  // ── Load a saved topology file from the menu → open builder ───────────────
+  const handleLoadFromMenu = (topo: GraphTopology) => {
+    setInitialBuilderTopo(topo);
+    setView('BUILD');
+  };
+
   // ── Custom topology from builder ───────────────────────────────────────────
-  // For now: validate the custom topology, display it as MTM mode (closest
-  // structural match).  A full graph-based simulation engine is provided by
-  // the graphSimEngine module and can be wired in here as a future step.
   const handleCustomSim = (_topo: GraphTopology) => {
     // Fallback: treat as MTM preset so all existing FSM code works.
-    // In a production implementation, map the GraphTopology to SimState
-    // via the role assignments and connectivity sweep.
     setTopology('MTM');
     sim.dispatch.setTopology('MTM');
     setView('SIM');
   };
 
-  // ── Reset ──────────────────────────────────────────────────────────────────
+  // ── Reset → main menu ──────────────────────────────────────────────────────
   const handleReset = () => {
     sim.dispatch.resetSim();
     setTopology(null);
-    setView('SELECT');
+    setInitialBuilderTopo(null);
+    setView('MENU');
   };
 
   const handleExportLog = () => {
@@ -57,12 +60,13 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  // ── Render: topology selector ──────────────────────────────────────────────
-  if (view === 'SELECT') {
+  // ── Render: main menu ──────────────────────────────────────────────────────
+  if (view === 'MENU') {
     return (
-      <TopologySelector
+      <TopologyMenu
         onSelect={handleSelectTopology}
-        onCustom={() => setView('BUILD')}
+        onCustom={() => { setInitialBuilderTopo(null); setView('BUILD'); }}
+        onLoadFile={handleLoadFromMenu}
       />
     );
   }
@@ -72,7 +76,8 @@ export default function App() {
     return (
       <TopologyBuilder
         onStartSimulation={handleCustomSim}
-        onBack={() => setView('SELECT')}
+        onBack={() => setView('MENU')}
+        initialTopo={initialBuilderTopo}
       />
     );
   }
@@ -88,7 +93,7 @@ export default function App() {
           <span className="header-topology">{topology}</span>
         </div>
         <button className="change-topology-btn" onClick={handleReset}>
-          Change Topology
+          Main Menu
         </button>
       </header>
 

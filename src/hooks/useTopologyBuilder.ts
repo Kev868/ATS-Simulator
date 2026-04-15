@@ -28,6 +28,7 @@ export interface BuilderState {
   ghostPos: { x: number; y: number } | null;
   history: GraphTopology[];
   future:  GraphTopology[];
+  dirty: boolean;                  // true when there are unsaved changes
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ type Action =
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'LOAD_TOPO'; topo: GraphTopology }
+  | { type: 'MARK_CLEAN' }
   | { type: 'SET_CANVAS'; w: number; h: number };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -229,6 +231,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
         ghostRotation: 0,
         selectedId: action.comp.id,
         selectedIds: [action.comp.id],
+        dirty: true,
       };
     }
 
@@ -282,7 +285,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
         components: topo.components.filter(c => c.id !== id),
         wires: topo.wires.filter(w => w.fromCompId !== id && w.toCompId !== id),
       };
-      return { ...saved, topo, selectedId: null, selectedIds: [] };
+      return { ...saved, topo, selectedId: null, selectedIds: [], dirty: true };
     }
 
     case 'UPDATE_COMP_PROPS': {
@@ -295,6 +298,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
             c.id === action.id ? { ...c, props: { ...c.props, ...action.patch } } : c
           ),
         },
+        dirty: true,
       };
     }
 
@@ -308,6 +312,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
             c.id === action.id ? { ...c, tag: action.tag } : c
           ),
         },
+        dirty: true,
       };
     }
 
@@ -321,6 +326,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
             c.id === action.id ? { ...c, role: action.role } : c
           ),
         },
+        dirty: true,
       };
     }
 
@@ -336,6 +342,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
               : c
           ),
         },
+        dirty: true,
       };
     }
 
@@ -350,7 +357,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
         return { ...c, rotation: newRotation, ports: rotatePorts(c.ports, clockwise) };
       });
       const updatedWires = rerouteWiresForComp(state.topo.wires, updatedComps, action.id);
-      return { ...saved, topo: { ...state.topo, components: updatedComps, wires: updatedWires } };
+      return { ...saved, topo: { ...state.topo, components: updatedComps, wires: updatedWires }, dirty: true };
     }
 
     case 'ROTATE_GHOST': {
@@ -369,7 +376,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
       const saved = pushHistory(state, state.topo);
       const updatedComps = state.topo.components.map(c => c.id === id ? { ...c, x, y } : c);
       const updatedWires = rerouteWiresForComp(state.topo.wires, updatedComps, id);
-      return { ...saved, topo: { ...state.topo, components: updatedComps, wires: updatedWires } };
+      return { ...saved, topo: { ...state.topo, components: updatedComps, wires: updatedWires }, dirty: true };
     }
 
     case 'MOVE_MULTI': {
@@ -386,7 +393,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
         return pos ? { ...c, ...pos } : c;
       });
       const updatedWires = rerouteWiresForComps(state.topo.wires, updatedComps, moves.map(m => m.id));
-      return { ...saved, topo: { ...state.topo, components: updatedComps, wires: updatedWires } };
+      return { ...saved, topo: { ...state.topo, components: updatedComps, wires: updatedWires }, dirty: true };
     }
 
     case 'START_WIRE':
@@ -429,7 +436,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
           return c;
         }),
       };
-      return { ...saved, topo, wireStart: null };
+      return { ...saved, topo, wireStart: null, dirty: true };
     }
 
     case 'CANCEL_WIRE':
@@ -439,7 +446,7 @@ function reducer(state: BuilderState, action: Action): BuilderState {
       const saved = pushHistory(state, state.topo);
       let topo = removeWireFromPort(state.topo, action.wireId);
       topo = { ...topo, wires: topo.wires.filter(w => w.id !== action.wireId) };
-      return { ...saved, topo, selectedId: null, selectedIds: [] };
+      return { ...saved, topo, selectedId: null, selectedIds: [], dirty: true };
     }
 
     case 'UNDO': {
@@ -473,7 +480,11 @@ function reducer(state: BuilderState, action: Action): BuilderState {
         selectedId: null, selectedIds: [],
         history: [], future: [],
         wireStart: null, placingType: null, ghostRotation: 0,
+        dirty: false,
       };
+
+    case 'MARK_CLEAN':
+      return { ...state, dirty: false };
 
     case 'SET_CANVAS':
       return { ...state, topo: { ...state.topo, canvasW: action.w, canvasH: action.h } };
@@ -508,6 +519,7 @@ export function useTopologyBuilder() {
     ghostPos: null,
     history: [],
     future: [],
+    dirty: false,
   });
 
   const compCount = state.topo.components.length;
@@ -617,6 +629,8 @@ export function useTopologyBuilder() {
     }
   }, []);
 
+  const markClean = useCallback(() => dispatch({ type: 'MARK_CLEAN' }), []);
+
   const selectedComp = state.selectedId
     ? state.topo.components.find(c => c.id === state.selectedId) ?? null
     : null;
@@ -639,7 +653,7 @@ export function useTopologyBuilder() {
       moveComp, moveMulti,
       startWire, finishWire, cancelWire, deleteWire,
       undo, redo,
-      loadTopo, saveJSON, loadJSON,
+      loadTopo, saveJSON, loadJSON, markClean,
     },
   };
 }

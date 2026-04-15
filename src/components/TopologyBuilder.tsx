@@ -14,6 +14,7 @@ import { validateTopology, ValidationResult } from '../engine/topologyValidator'
 interface Props {
   onStartSimulation: (topo: GraphTopology) => void;
   onBack: () => void;
+  initialTopo?: GraphTopology | null;
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -433,6 +434,63 @@ function ValidationOverlay({ result, onClose }: { result: ValidationResult; onCl
   );
 }
 
+// ─── Unsaved changes modal ────────────────────────────────────────────────────
+
+function UnsavedChangesModal({ onCancel, onSaveAndLeave, onDiscardAndLeave }: {
+  onCancel: () => void;
+  onSaveAndLeave: () => void;
+  onDiscardAndLeave: () => void;
+}) {
+  // Esc / Enter → cancel (default action)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); onCancel(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onCancel]);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000,
+    }}>
+      <div style={{
+        background: '#1e293b', border: '2px solid #334155',
+        borderRadius: 10, padding: '28px 32px', maxWidth: 440, width: '90%',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+      }}>
+        <div style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '1.1rem', marginBottom: 8 }}>
+          Discard your work?
+        </div>
+        <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: 24, lineHeight: 1.55 }}>
+          You have unsaved changes to this topology. If you leave now, those changes will be lost.
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <button onClick={onCancel} style={{
+            background: '#334155', color: '#e2e8f0', border: '1px solid #475569',
+            borderRadius: 5, padding: '7px 16px', cursor: 'pointer', fontSize: '0.82rem',
+          }}>
+            Keep Editing
+          </button>
+          <button onClick={onSaveAndLeave} style={{
+            background: '#1d4ed8', color: '#dbeafe', border: '1px solid #2563eb',
+            borderRadius: 5, padding: '7px 16px', cursor: 'pointer', fontSize: '0.82rem',
+          }}>
+            Save & Leave
+          </button>
+          <button onClick={onDiscardAndLeave} style={{
+            background: '#7f1d1d', color: '#f87171', border: '1px solid #991b1b',
+            borderRadius: 5, padding: '7px 16px', cursor: 'pointer', fontSize: '0.82rem',
+          }}>
+            Discard & Leave
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Drag state ───────────────────────────────────────────────────────────────
 
 interface DragState {
@@ -453,15 +511,31 @@ interface RubberBand {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function TopologyBuilder({ onStartSimulation, onBack }: Props) {
+export default function TopologyBuilder({ onStartSimulation, onBack, initialTopo }: Props) {
   const { state, selectedComp, selectedWire, actions } = useTopologyBuilder();
   const svgRef = useRef<SVGSVGElement>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [mouseWire, setMouseWire] = useState<{ x: number; y: number } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [rubberBand, setRubberBand] = useState<RubberBand | null>(null);
+  const [pendingNav, setPendingNav] = useState<(() => void) | null>(null);
   // Tracks whether mouse actually moved during a mousedown (to avoid ghost-selecting on release)
   const didDragRef = useRef(false);
+
+  // Load initialTopo on mount if provided
+  useEffect(() => {
+    if (initialTopo) actions.loadTopo(initialTopo);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Warn browser before unload when dirty
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (state.dirty) { e.preventDefault(); e.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [state.dirty]);
 
   const { topo, selectedId, selectedIds, placingType, wireStart, ghostPos, ghostRotation } = state;
   const canvasPxW = topo.canvasW * GRID;
@@ -684,6 +758,17 @@ export default function TopologyBuilder({ onStartSimulation, onBack }: Props) {
     }
   }, [wireStart, actions]);
 
+  // ── Navigation guard
+  const guardedNav = useCallback((nav: () => void) => {
+    if (state.dirty) {
+      setPendingNav(() => nav);
+    } else {
+      nav();
+    }
+  }, [state.dirty]);
+
+  const handleBack = useCallback(() => guardedNav(onBack), [guardedNav, onBack]);
+
   // ── Save / load / export
   const handleSave = () => {
     const json = actions.saveJSON();
@@ -692,6 +777,7 @@ export default function TopologyBuilder({ onStartSimulation, onBack }: Props) {
     const a = document.createElement('a');
     a.href = url; a.download = `topology-${Date.now()}.json`; a.click();
     URL.revokeObjectURL(url);
+    actions.markClean();
   };
 
   const handleLoad = () => {
@@ -742,9 +828,10 @@ export default function TopologyBuilder({ onStartSimulation, onBack }: Props) {
 
       {/* ── Toolbar ── */}
       <div style={{ background: '#0a1020', borderBottom: '1px solid #1e293b', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <button style={btnBase} onClick={onBack}>← Back</button>
+        <button style={btnBase} onClick={handleBack}>← Back</button>
         <span style={{ color: '#475569', fontSize: '0.78rem', fontFamily: "'Courier New', monospace" }}>
           TOPOLOGY BUILDER — {topo.name}
+          {state.dirty && <span style={{ color: '#f59e0b', marginLeft: 8 }}>●</span>}
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <button style={btnBase} onClick={actions.undo} title="Ctrl+Z">↶ Undo</button>
@@ -946,6 +1033,24 @@ export default function TopologyBuilder({ onStartSimulation, onBack }: Props) {
           onClose={() => {
             if (validationResult.ok) { setValidationResult(null); onStartSimulation(topo); }
             else setValidationResult(null);
+          }}
+        />
+      )}
+
+      {/* ── Unsaved changes modal ── */}
+      {pendingNav && (
+        <UnsavedChangesModal
+          onCancel={() => setPendingNav(null)}
+          onSaveAndLeave={() => {
+            handleSave();
+            const nav = pendingNav;
+            setPendingNav(null);
+            nav();
+          }}
+          onDiscardAndLeave={() => {
+            const nav = pendingNav;
+            setPendingNav(null);
+            nav();
           }}
         />
       )}
