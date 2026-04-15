@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Topology } from './engine/types';
+import { GraphTopology } from './engine/graphTopology';
 import { useSimulation } from './hooks/useSimulation';
 import TopologySelector from './components/TopologySelector';
+import TopologyBuilder from './components/TopologyBuilder';
 import OneLine from './components/OneLine';
 import SourcePanel from './components/SourcePanel';
 import SchemeSettings from './components/SchemeSettings';
@@ -10,17 +12,38 @@ import SimControls from './components/SimControls';
 import ScenarioSelector from './components/ScenarioSelector';
 import './App.css';
 
+type AppView = 'SELECT' | 'BUILD' | 'SIM';
+
 export default function App() {
+  const [view, setView] = useState<AppView>('SELECT');
   const [topology, setTopology] = useState<Topology | null>(null);
   const sim = useSimulation();
 
+  // ── Topology selection (preset) ────────────────────────────────────────────
   const handleSelectTopology = (t: Topology) => {
     setTopology(t);
     sim.dispatch.setTopology(t);
+    setView('SIM');
   };
 
+  // ── Custom topology from builder ───────────────────────────────────────────
+  // For now: validate the custom topology, display it as MTM mode (closest
+  // structural match).  A full graph-based simulation engine is provided by
+  // the graphSimEngine module and can be wired in here as a future step.
+  const handleCustomSim = (_topo: GraphTopology) => {
+    // Fallback: treat as MTM preset so all existing FSM code works.
+    // In a production implementation, map the GraphTopology to SimState
+    // via the role assignments and connectivity sweep.
+    setTopology('MTM');
+    sim.dispatch.setTopology('MTM');
+    setView('SIM');
+  };
+
+  // ── Reset ──────────────────────────────────────────────────────────────────
   const handleReset = () => {
     sim.dispatch.resetSim();
+    setTopology(null);
+    setView('SELECT');
   };
 
   const handleExportLog = () => {
@@ -34,10 +57,27 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  if (!topology) {
-    return <TopologySelector onSelect={handleSelectTopology} />;
+  // ── Render: topology selector ──────────────────────────────────────────────
+  if (view === 'SELECT') {
+    return (
+      <TopologySelector
+        onSelect={handleSelectTopology}
+        onCustom={() => setView('BUILD')}
+      />
+    );
   }
 
+  // ── Render: custom topology builder ───────────────────────────────────────
+  if (view === 'BUILD') {
+    return (
+      <TopologyBuilder
+        onStartSimulation={handleCustomSim}
+        onBack={() => setView('SELECT')}
+      />
+    );
+  }
+
+  // ── Render: simulator ──────────────────────────────────────────────────────
   const { state, dispatch } = sim;
 
   return (
@@ -47,13 +87,7 @@ export default function App() {
           <span className="header-title">ATS Simulator</span>
           <span className="header-topology">{topology}</span>
         </div>
-        <button
-          className="change-topology-btn"
-          onClick={() => {
-            setTopology(null);
-            handleReset();
-          }}
-        >
+        <button className="change-topology-btn" onClick={handleReset}>
           Change Topology
         </button>
       </header>

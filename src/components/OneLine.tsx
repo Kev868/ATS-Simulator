@@ -1,3 +1,15 @@
+// ─── IEEE/ANSI Engineering One-Line Diagram ───────────────────────────────────
+// Drawing conventions enforced:
+//   Buses       — 4 px thick solid horizontal lines
+//   Feeders     — 2 px orthogonal wires (Manhattan routing, no diagonals)
+//   Breakers    — 14×14 px square; OPEN = hollow + NW-SE slash, CLOSED = filled
+//   Sources     — circle, ~ sinusoidal inscription, label above
+//   Loads       — labeled rectangle + 3-line ground symbol
+//   Labels      — Courier New / monospace, fixed 9 px, device-number above symbol
+//   Color       — bodies are monochrome (BODY); energization state is the ONLY
+//                 thing that adds color (green/blue/purple per source, amber fault)
+//   No gradients, rounded corners on symbols, icons, or decorative elements.
+
 import React from 'react';
 import { SimState, Breaker, Bus } from '../engine/types';
 
@@ -6,509 +18,510 @@ interface Props {
   onBreakerClick?: (breakerId: string) => void;
 }
 
-// Colors
-const COLOR_ENERGIZED_M1 = '#22c55e';
-const COLOR_ENERGIZED_M2 = '#3b82f6';
-const COLOR_ENERGIZED_M3 = '#a855f7';
-const COLOR_DEAD = '#334155';
-const COLOR_BREAKER_CLOSED = '#22c55e';
-const COLOR_BREAKER_OPEN = '#64748b';
-const COLOR_BREAKER_OPERATING = '#f59e0b';
-const COLOR_SOURCE_M1 = '#22c55e';
-const COLOR_SOURCE_M2 = '#3b82f6';
-const COLOR_SOURCE_M3 = '#a855f7';
-const COLOR_LOAD = '#f59e0b';
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const BODY      = '#94a3b8'; // monochrome component body (slate-400)
+const BODY_FILL = '#0d1b2e'; // component interior fill
+const DE_ENRG   = '#334155'; // de-energized wire/bus
+const C_M1      = '#22c55e'; // M1 energized — green
+const C_M2      = '#3b82f6'; // M2 energized — blue
+const C_M3      = '#a855f7'; // M3 energized — purple
+const C_FAULT   = '#f59e0b'; // fault / operating — amber
+const BUS_W     = 4;
+const WIRE_W    = 2;
+const FONT      = "'Courier New', 'Consolas', monospace";
+const LABEL_SZ  = 9;
 
-function getBusColor(bus: Bus): string {
-  if (!bus.energized) return COLOR_DEAD;
-  if (bus.sourceId === 'M1') return COLOR_ENERGIZED_M1;
-  if (bus.sourceId === 'M2') return COLOR_ENERGIZED_M2;
-  if (bus.sourceId === 'M3') return COLOR_ENERGIZED_M3;
-  return COLOR_ENERGIZED_M1;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function srcColor(sourceId: string | null): string {
+  if (sourceId === 'M1') return C_M1;
+  if (sourceId === 'M2') return C_M2;
+  if (sourceId === 'M3') return C_M3;
+  return DE_ENRG;
 }
 
-function getSourceColor(id: string): string {
-  if (id === 'M1') return COLOR_SOURCE_M1;
-  if (id === 'M2') return COLOR_SOURCE_M2;
-  if (id === 'M3') return COLOR_SOURCE_M3;
-  return '#94a3b8';
+function busColor(bus: Bus): string {
+  return bus.energized ? srcColor(bus.sourceId) : DE_ENRG;
 }
 
-interface BreakerSymbolProps {
-  x: number;
-  y: number;
-  breaker: Breaker;
+function wireColor(bus: Bus | null): string {
+  if (!bus) return DE_ENRG;
+  return bus.energized ? srcColor(bus.sourceId) : DE_ENRG;
+}
+
+// ─── Primitive: wire segment (feeder) ────────────────────────────────────────
+
+function W({ x1, y1, x2, y2, color = BODY }: {
+  x1: number; y1: number; x2: number; y2: number; color?: string;
+}) {
+  return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={WIRE_W} strokeLinecap="square" />;
+}
+
+// ─── Breaker symbol (ANSI 52) ─────────────────────────────────────────────────
+// Horizontal breaker: ports on left and right face.
+// OPEN:   hollow box + diagonal slash (NW→SE)
+// CLOSED: solid box, no slash
+// TRANS:  dashed outline, amber, blinking
+
+interface BkrProps {
+  cx: number; cy: number;
+  br: Breaker;
   onClick?: () => void;
-  label?: string;
 }
 
-function BreakerSymbol({ x, y, breaker, onClick, label }: BreakerSymbolProps) {
-  const isAnimating = breaker.state === 'CLOSING' || breaker.state === 'TRIPPING';
-  const isClosed = breaker.state === 'CLOSED';
+function BreakerSym({ cx, cy, br, onClick }: BkrProps) {
+  const H  = 14; // half-width/height of breaker square
+  const isOpen      = br.state === 'OPEN';
+  const isClosed    = br.state === 'CLOSED';
+  const isTransient = br.state === 'CLOSING' || br.state === 'TRIPPING';
 
-  let fill = COLOR_BREAKER_OPEN;
-  if (isClosed) fill = COLOR_BREAKER_CLOSED;
-  if (isAnimating) fill = COLOR_BREAKER_OPERATING;
-
-  const size = 14;
+  const stroke = isTransient ? C_FAULT : BODY;
+  const fill   = isClosed    ? BODY    : BODY_FILL;
 
   return (
-    <g
-      onClick={onClick}
-      style={{ cursor: onClick ? 'pointer' : 'default' }}
-      role={onClick ? 'button' : undefined}
-    >
+    <g onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }} role={onClick ? 'button' : undefined}>
+      {/* Body */}
       <rect
-        x={x - size / 2}
-        y={y - size / 2}
-        width={size}
-        height={size}
-        fill={fill}
-        stroke={isAnimating ? '#fbbf24' : '#1e293b'}
-        strokeWidth="1.5"
-        rx="2"
-        opacity={isAnimating ? undefined : 1}
+        x={cx - H / 2} y={cy - H / 2}
+        width={H} height={H}
+        fill={fill} stroke={stroke}
+        strokeWidth={1.5}
+        strokeDasharray={isTransient ? '3,2' : undefined}
       >
-        {isAnimating && (
-          <animate
-            attributeName="opacity"
-            values="1;0.3;1"
-            dur="0.6s"
-            repeatCount="indefinite"
-          />
+        {isTransient && (
+          <animate attributeName="opacity" values="1;0.25;1" dur="0.5s" repeatCount="indefinite" />
         )}
       </rect>
-      {/* Open indicator — diagonal line */}
-      {!isClosed && !isAnimating && (
+
+      {/* OPEN slash — NW to SE diagonal */}
+      {isOpen && (
         <line
-          x1={x - size / 2 + 3}
-          y1={y - size / 2 + 3}
-          x2={x + size / 2 - 3}
-          y2={y + size / 2 - 3}
-          stroke="#e2e8f0"
-          strokeWidth="1.5"
+          x1={cx - H / 2 + 2} y1={cy - H / 2 + 2}
+          x2={cx + H / 2 - 2} y2={cy + H / 2 - 2}
+          stroke={BODY} strokeWidth={1.5}
         />
       )}
-      {label && (
-        <text
-          x={x}
-          y={y + size / 2 + 12}
-          textAnchor="middle"
-          fill="#94a3b8"
-          fontSize="9"
-          fontFamily="monospace"
-        >
-          {label}
-        </text>
-      )}
-      {/* State label */}
-      <text
-        x={x}
-        y={y - size / 2 - 4}
-        textAnchor="middle"
-        fill={fill}
-        fontSize="8"
-        fontFamily="monospace"
-      >
-        {breaker.state}
+
+      {/* ANSI device number above */}
+      <text x={cx} y={cy - H / 2 - 3}
+        textAnchor="middle" fill={BODY}
+        fontSize={LABEL_SZ - 1} fontFamily={FONT} fontWeight="600">
+        52
+      </text>
+
+      {/* Tag below */}
+      <text x={cx} y={cy + H / 2 + 10}
+        textAnchor="middle" fill={BODY}
+        fontSize={LABEL_SZ - 1} fontFamily={FONT}>
+        {br.label}
       </text>
     </g>
   );
 }
 
-interface LoadSymbolProps {
-  x: number;
-  y: number;
-  loadKW: number;
-  energized: boolean;
-}
+// ─── Source symbol ────────────────────────────────────────────────────────────
+// Circle with a sinusoidal arc inside, tag above, voltage% below.
 
-function LoadSymbol({ x, y, loadKW, energized }: LoadSymbolProps) {
-  const color = energized ? COLOR_LOAD : '#475569';
+interface SrcProps { cx: number; cy: number; id: string; voltage: number; available: boolean; }
+
+function SourceSym({ cx, cy, id, voltage, available }: SrcProps) {
+  const r = 22;
+  const alive = available && voltage > 0;
+  const color = alive
+    ? id === 'M1' ? C_M1 : id === 'M2' ? C_M2 : C_M3
+    : DE_ENRG;
+
+  // Sine-wave approximation (S-curve across circle interior)
+  const sw = r * 0.7;
+  const sinePath = `M${cx - sw},${cy} C${cx - sw * 0.5},${cy - sw * 0.5} ${cx + sw * 0.5},${cy + sw * 0.5} ${cx + sw},${cy}`;
+
   return (
     <g>
-      <line x1={x} y1={y} x2={x} y2={y + 18} stroke={color} strokeWidth="1.5" />
-      {/* Zigzag resistor */}
-      <polyline
-        points={`${x - 8},${y + 18} ${x - 4},${y + 24} ${x},${y + 18} ${x + 4},${y + 30} ${x + 8},${y + 24} ${x + 12},${y + 30} ${x + 16},${y + 24}`}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        transform={`translate(-4,0)`}
-      />
-      <text
-        x={x}
-        y={y + 48}
-        textAnchor="middle"
-        fill={color}
-        fontSize="9"
-        fontFamily="sans-serif"
-      >
-        {loadKW} kW
+      <circle cx={cx} cy={cy} r={r} fill={BODY_FILL} stroke={color} strokeWidth={2} />
+      <path d={sinePath} fill="none" stroke={color} strokeWidth={1.5} />
+
+      {/* Tag */}
+      <text x={cx} y={cy - r - 5}
+        textAnchor="middle" fill={color}
+        fontSize={LABEL_SZ} fontFamily={FONT} fontWeight="700" letterSpacing="0.04em">
+        {id}
+      </text>
+
+      {/* Voltage readout */}
+      <text x={cx} y={cy + r + 13}
+        textAnchor="middle" fill={color}
+        fontSize={LABEL_SZ - 1} fontFamily={FONT}>
+        {voltage.toFixed(0)}%
       </text>
     </g>
   );
 }
 
-interface BusLineProps {
-  x: number;
-  y: number;
-  width: number;
-  bus: Bus;
-  label: string;
-  fillTransition?: string;
-}
+// ─── Bus segment ──────────────────────────────────────────────────────────────
 
-function BusLine({ x, y, width, bus, label, fillTransition = 'fill 0.08s ease' }: BusLineProps) {
-  const color = getBusColor(bus);
-  const isDead = !bus.energized;
+interface BusLineProps { x1: number; y: number; x2: number; bus: Bus; label: string; fillTransition?: string; }
 
+function BusLine({ x1, y, x2, bus, label, fillTransition }: BusLineProps) {
+  const color = busColor(bus);
+  const mid   = (x1 + x2) / 2;
   return (
     <g>
-      <rect
-        x={x}
-        y={y}
-        width={width}
-        height={10}
-        fill={color}
-        opacity={isDead ? 0.3 : 1}
-        rx="2"
-        strokeDasharray={isDead ? '6,4' : undefined}
-        stroke={isDead ? '#475569' : undefined}
-        style={{ transition: fillTransition }}
+      <line x1={x1} y1={y} x2={x2} y2={y}
+        stroke={color} strokeWidth={BUS_W} strokeLinecap="square"
+        style={fillTransition ? { transition: `stroke ${fillTransition}` } : undefined}
       />
-      <text
-        x={x + width / 2}
-        y={y - 6}
-        textAnchor="middle"
-        fill="#94a3b8"
-        fontSize="10"
-        fontWeight="600"
-        fontFamily="sans-serif"
-      >
+      <text x={mid} y={y - 7}
+        textAnchor="middle" fill={color}
+        fontSize={LABEL_SZ} fontFamily={FONT} fontWeight="700" letterSpacing="0.08em">
         {label}
       </text>
-      {bus.energized && (
-        <text
-          x={x + width / 2}
-          y={y + 22}
-          textAnchor="middle"
-          fill={color}
-          fontSize="9"
-          fontFamily="monospace"
-        >
-          {bus.voltage.toFixed(1)}%
-        </text>
-      )}
     </g>
   );
 }
 
-// Progress arc for timers
-interface TimerArcProps {
-  cx: number;
-  cy: number;
-  r: number;
-  progress: number; // 0-1
-  label: string;
-}
+// ─── Load symbol ──────────────────────────────────────────────────────────────
+// IEEE: labeled block rectangle + 3-line ground symbol below
 
-function TimerArc({ cx, cy, r, progress, label }: TimerArcProps) {
-  const angle = progress * 360;
-  const rad = (angle - 90) * (Math.PI / 180);
-  const x2 = cx + r * Math.cos(rad);
-  const y2 = cy + r * Math.sin(rad);
-  const largeArc = angle > 180 ? 1 : 0;
+interface LoadProps { cx: number; topY: number; loadKW: number; bus: Bus | null; }
+
+function LoadSym({ cx, topY, loadKW, bus }: LoadProps) {
+  const alive = bus?.energized ?? false;
+  const color = alive ? srcColor(bus?.sourceId ?? null) : DE_ENRG;
+  const bw = 36; const bh = 22;
 
   return (
     <g>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#334155" strokeWidth="3" />
+      {/* Drop feeder */}
+      <W x1={cx} y1={topY} x2={cx} y2={topY + 10} color={color} />
+      {/* Load block */}
+      <rect x={cx - bw / 2} y={topY + 10} width={bw} height={bh}
+        fill={BODY_FILL} stroke={color} strokeWidth={1.5} />
+      <text x={cx} y={topY + 10 + bh / 2 + 4}
+        textAnchor="middle" fill={color}
+        fontSize={LABEL_SZ - 1} fontFamily={FONT}>
+        {loadKW}kW
+      </text>
+      {/* IEEE ground: three descending lines */}
+      <W x1={cx} y1={topY + 10 + bh} x2={cx} y2={topY + 10 + bh + 8} color={color} />
+      <line x1={cx - 12} y1={topY + 10 + bh + 8}  x2={cx + 12} y2={topY + 10 + bh + 8}  stroke={color} strokeWidth={1.5} />
+      <line x1={cx - 8}  y1={topY + 10 + bh + 12} x2={cx + 8}  y2={topY + 10 + bh + 12} stroke={color} strokeWidth={1.5} />
+      <line x1={cx - 4}  y1={topY + 10 + bh + 16} x2={cx + 4}  y2={topY + 10 + bh + 16} stroke={color} strokeWidth={1.5} />
+    </g>
+  );
+}
+
+// ─── Timer arc ────────────────────────────────────────────────────────────────
+
+function TimerArc({ cx, cy, r, progress, label }: {
+  cx: number; cy: number; r: number; progress: number; label: string;
+}) {
+  const angle = Math.min(progress, 0.9999) * 360;
+  const rad   = (angle - 90) * (Math.PI / 180);
+  const ex    = cx + r * Math.cos(rad);
+  const ey    = cy + r * Math.sin(rad);
+  const large = angle > 180 ? 1 : 0;
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1e293b" strokeWidth={3} />
       {progress > 0 && (
-        <path
-          d={`M ${cx} ${cy - r} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`}
-          fill="none"
-          stroke="#f59e0b"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
+        <path d={`M${cx},${cy - r} A${r},${r} 0 ${large} 1 ${ex},${ey}`}
+          fill="none" stroke={C_FAULT} strokeWidth={3} strokeLinecap="round" />
       )}
-      <text x={cx} y={cy + 3} textAnchor="middle" fill="#f59e0b" fontSize="7" fontFamily="sans-serif">
-        {label}
-      </text>
+      <text x={cx} y={cy + 3} textAnchor="middle"
+        fill={C_FAULT} fontSize={7} fontFamily={FONT}>{label}</text>
     </g>
   );
 }
 
-// ─── TWO_SOURCE Layout ───────────────────────────────────────────────────────
+// ─── TWO_SOURCE layout ────────────────────────────────────────────────────────
+// M1 ──[52-M1]────── BUS-1 ──────[52-M2]── M2
+//                       |
+//                     LOAD
 
 function TwoSourceLayout({ state, onBreakerClick }: Props) {
   const { sources, breakers, buses, activeTimers, speed } = state;
-  const fillTransition = speed <= 0.25 ? 'fill 0.4s ease' : 'fill 0.08s ease';
-  const m1 = sources.find(s => s.id === 'M1')!;
-  const m2 = sources.find(s => s.id === 'M2')!;
-  const br_m1 = breakers.find(b => b.id === '52-M1')!;
-  const br_m2 = breakers.find(b => b.id === '52-M2')!;
-  const bus1 = buses.find(b => b.id === 'BUS1')!;
+  const m1    = sources.find(s => s.id === 'M1')!;
+  const m2    = sources.find(s => s.id === 'M2')!;
+  const brM1  = breakers.find(b => b.id === '52-M1')!;
+  const brM2  = breakers.find(b => b.id === '52-M2')!;
+  const bus1  = buses.find(b => b.id === 'BUS1')!;
+  const trans = speed <= 0.25 ? 'stroke 0.4s ease' : undefined;
 
-  const xferTimer = activeTimers.find(t => t.id === 'XFER_DELAY');
-  const retranTimer = activeTimers.find(t => t.id === 'RETRANSFER');
+  const xferT = activeTimers.find(t => t.id === 'XFER_DELAY');
+  const retrT = activeTimers.find(t => t.id === 'RETRANSFER');
+
+  // Grid-snapped layout (all coords multiples of 20)
+  const busY = 100;
+  const srcY = busY;
+  // Bus from x=180 to x=500
+  const busX1 = 180; const busX2 = 500;
+  const brM1X = 140; const brM2X = 540;
+  const m1X   =  60; const m2X   = 620;
+  const loadX = 340; const loadY = busY + 20;
+  const fcB1  = bus1.energized ? srcColor(bus1.sourceId) : DE_ENRG;
 
   return (
-    <svg viewBox="0 0 560 160" width="100%" style={{ maxHeight: 200 }}>
+    <svg viewBox="0 0 700 220" width="100%" style={{ maxHeight: 220 }}>
       {/* M1 source */}
-      <circle cx="50" cy="80" r="24" fill="none" stroke={getSourceColor('M1')} strokeWidth="2.5" />
-      <text x="50" y="76" textAnchor="middle" fill={getSourceColor('M1')} fontSize="12" fontWeight="bold">M1</text>
-      <text x="50" y="90" textAnchor="middle" fill={getSourceColor('M1')} fontSize="9">{m1.voltage.toFixed(0)}%</text>
+      <SourceSym cx={m1X} cy={srcY} id="M1" voltage={m1.voltage} available={m1.available} />
 
-      {/* Line M1 to breaker */}
-      <line x1="74" y1="80" x2="110" y2="80" stroke="#475569" strokeWidth="2" />
+      {/* M1→brM1 feeder */}
+      <W x1={m1X + 22} y1={srcY} x2={brM1X - 7} y2={srcY} color={m1.available ? C_M1 : DE_ENRG} />
 
-      {/* Breaker 52-M1 */}
-      <BreakerSymbol
-        x={124}
-        y={80}
-        breaker={br_m1}
-        onClick={() => onBreakerClick?.('52-M1')}
-        label="52-M1"
-      />
-      <line x1="138" y1="80" x2="170" y2="80" stroke="#475569" strokeWidth="2" />
+      {/* 52-M1 */}
+      <BreakerSym cx={brM1X} cy={srcY} br={brM1} onClick={() => onBreakerClick?.('52-M1')} />
 
-      {/* Bus 1 */}
-      <BusLine x={170} y={75} width={220} bus={bus1} label="BUS 1" fillTransition={fillTransition} />
+      {/* brM1→bus feeder */}
+      <W x1={brM1X + 7} y1={srcY} x2={busX1} y2={srcY} color={fcB1} />
 
-      {/* Load */}
-      <LoadSymbol x={280} y={85} loadKW={bus1.loadKW} energized={bus1.energized} />
+      {/* BUS-1 */}
+      <BusLine x1={busX1} y={busY} x2={busX2} bus={bus1} label="BUS-1" fillTransition={trans} />
 
-      {/* Transfer timer arc */}
-      {xferTimer && !xferTimer.complete && (
-        <TimerArc
-          cx={280}
-          cy={55}
-          r={14}
-          progress={xferTimer.elapsedMs / xferTimer.durationMs}
-          label="XFR"
-        />
-      )}
-      {retranTimer && !retranTimer.complete && (
-        <TimerArc
-          cx={310}
-          cy={55}
-          r={14}
-          progress={retranTimer.elapsedMs / retranTimer.durationMs}
-          label="RTR"
-        />
-      )}
+      {/* Vertical drop to load */}
+      <W x1={loadX} y1={busY + 2} x2={loadX} y2={loadY} color={fcB1} />
 
-      {/* Line Bus to 52-M2 */}
-      <line x1="390" y1="80" x2="422" y2="80" stroke="#475569" strokeWidth="2" />
+      {/* LOAD */}
+      <LoadSym cx={loadX} topY={loadY} loadKW={bus1.loadKW} bus={bus1} />
 
-      {/* Breaker 52-M2 */}
-      <BreakerSymbol
-        x={436}
-        y={80}
-        breaker={br_m2}
-        onClick={() => onBreakerClick?.('52-M2')}
-        label="52-M2"
-      />
-      <line x1="450" y1="80" x2="486" y2="80" stroke="#475569" strokeWidth="2" />
+      {/* bus→brM2 feeder */}
+      <W x1={busX2} y1={busY} x2={brM2X - 7} y2={busY} color={fcB1} />
+
+      {/* 52-M2 */}
+      <BreakerSym cx={brM2X} cy={srcY} br={brM2} onClick={() => onBreakerClick?.('52-M2')} />
+
+      {/* brM2→M2 feeder */}
+      <W x1={brM2X + 7} y1={srcY} x2={m2X - 22} y2={srcY} color={m2.available ? C_M2 : DE_ENRG} />
 
       {/* M2 source */}
-      <circle cx="510" cy="80" r="24" fill="none" stroke={getSourceColor('M2')} strokeWidth="2.5" />
-      <text x="510" y="76" textAnchor="middle" fill={getSourceColor('M2')} fontSize="12" fontWeight="bold">M2</text>
-      <text x="510" y="90" textAnchor="middle" fill={getSourceColor('M2')} fontSize="9">{m2.voltage.toFixed(0)}%</text>
+      <SourceSym cx={m2X} cy={srcY} id="M2" voltage={m2.voltage} available={m2.available} />
+
+      {/* Timer arcs */}
+      {xferT && !xferT.complete && (
+        <TimerArc cx={loadX} cy={busY - 30} r={16}
+          progress={xferT.elapsedMs / xferT.durationMs} label="XFR" />
+      )}
+      {retrT && !retrT.complete && (
+        <TimerArc cx={loadX + 40} cy={busY - 30} r={16}
+          progress={retrT.elapsedMs / retrT.durationMs} label="RTR" />
+      )}
     </svg>
   );
 }
 
-// ─── MTM Layout ──────────────────────────────────────────────────────────────
+// ─── MTM layout ───────────────────────────────────────────────────────────────
+// M1 ──[52-M1]── BUS-A ──[52-T]── BUS-B ──[52-M2]── M2
+//                  |                  |
+//               LOAD-A            LOAD-B
 
 function MTMLayout({ state, onBreakerClick }: Props) {
   const { sources, breakers, buses, activeTimers, speed } = state;
-  const fillTransition = speed <= 0.25 ? 'fill 0.4s ease' : 'fill 0.08s ease';
-  const m1 = sources.find(s => s.id === 'M1')!;
-  const m2 = sources.find(s => s.id === 'M2')!;
-  const br_m1 = breakers.find(b => b.id === '52-M1')!;
-  const br_t = breakers.find(b => b.id === '52-T')!;
-  const br_m2 = breakers.find(b => b.id === '52-M2')!;
-  const bus1 = buses.find(b => b.id === 'BUS1')!;
-  const bus2 = buses.find(b => b.id === 'BUS2')!;
+  const m1    = sources.find(s => s.id === 'M1')!;
+  const m2    = sources.find(s => s.id === 'M2')!;
+  const brM1  = breakers.find(b => b.id === '52-M1')!;
+  const brT   = breakers.find(b => b.id === '52-T')!;
+  const brM2  = breakers.find(b => b.id === '52-M2')!;
+  const bus1  = buses.find(b => b.id === 'BUS1')!;
+  const bus2  = buses.find(b => b.id === 'BUS2')!;
+  const trans = speed <= 0.25 ? 'stroke 0.4s ease' : undefined;
 
-  const xferTimer = activeTimers.find(t => t.id === 'XFER_DELAY');
-  const retranTimer = activeTimers.find(t => t.id === 'RETRANSFER');
-  const parallelTimer = activeTimers.find(t => t.id === 'PARALLEL_TIMER');
+  const xferT  = activeTimers.find(t => t.id === 'XFER_DELAY');
+  const retrT  = activeTimers.find(t => t.id === 'RETRANSFER');
+  const parT   = activeTimers.find(t => t.id === 'PARALLEL_TIMER');
+
+  // Layout
+  const busY = 100;
+  const m1X  =  60;  const m2X   = 780;
+  const brM1X = 120; const brM2X = 720;
+  const busAX1 = 160; const busAX2 = 340;
+  const busBX1 = 500; const busBX2 = 680;
+  const brTX  = 420;
+  const loadAX = 250; const loadBX = 590;
+  const loadY  = busY + 20;
+  const fcB1 = bus1.energized ? srcColor(bus1.sourceId) : DE_ENRG;
+  const fcB2 = bus2.energized ? srcColor(bus2.sourceId) : DE_ENRG;
 
   return (
-    <svg viewBox="0 0 700 180" width="100%" style={{ maxHeight: 220 }}>
+    <svg viewBox="0 0 860 240" width="100%" style={{ maxHeight: 240 }}>
       {/* M1 */}
-      <circle cx="50" cy="90" r="24" fill="none" stroke={getSourceColor('M1')} strokeWidth="2.5" />
-      <text x="50" y="86" textAnchor="middle" fill={getSourceColor('M1')} fontSize="12" fontWeight="bold">M1</text>
-      <text x="50" y="100" textAnchor="middle" fill={getSourceColor('M1')} fontSize="9">{m1.voltage.toFixed(0)}%</text>
+      <SourceSym cx={m1X} cy={busY} id="M1" voltage={m1.voltage} available={m1.available} />
+      <W x1={m1X + 22} y1={busY} x2={brM1X - 7} y2={busY} color={m1.available ? C_M1 : DE_ENRG} />
+      <BreakerSym cx={brM1X} cy={busY} br={brM1} onClick={() => onBreakerClick?.('52-M1')} />
+      <W x1={brM1X + 7} y1={busY} x2={busAX1} y2={busY} color={fcB1} />
 
-      <line x1="74" y1="90" x2="110" y2="90" stroke="#475569" strokeWidth="2" />
+      {/* BUS-A */}
+      <BusLine x1={busAX1} y={busY} x2={busAX2} bus={bus1} label="BUS-A" fillTransition={trans} />
+      <W x1={loadAX} y1={busY + 2} x2={loadAX} y2={loadY} color={fcB1} />
+      <LoadSym cx={loadAX} topY={loadY} loadKW={bus1.loadKW} bus={bus1} />
 
-      <BreakerSymbol x={124} y={90} breaker={br_m1} onClick={() => onBreakerClick?.('52-M1')} label="52-M1" />
-      <line x1="138" y1="90" x2="165" y2="90" stroke="#475569" strokeWidth="2" />
+      {/* Bus A → 52-T */}
+      <W x1={busAX2} y1={busY} x2={brTX - 7} y2={busY} color={fcB1} />
+      <BreakerSym cx={brTX} cy={busY} br={brT} onClick={() => onBreakerClick?.('52-T')} />
+      <W x1={brTX + 7} y1={busY} x2={busBX1} y2={busY} color={fcB2} />
 
-      {/* Bus 1 */}
-      <BusLine x={165} y={85} width={160} bus={bus1} label="BUS 1" fillTransition={fillTransition} />
+      {/* BUS-B */}
+      <BusLine x1={busBX1} y={busY} x2={busBX2} bus={bus2} label="BUS-B" fillTransition={trans} />
+      <W x1={loadBX} y1={busY + 2} x2={loadBX} y2={loadY} color={fcB2} />
+      <LoadSym cx={loadBX} topY={loadY} loadKW={bus2.loadKW} bus={bus2} />
 
-      {/* Load 1 */}
-      <LoadSymbol x={245} y={95} loadKW={bus1.loadKW} energized={bus1.energized} />
+      {/* BUS-B → 52-M2 → M2 */}
+      <W x1={busBX2} y1={busY} x2={brM2X - 7} y2={busY} color={fcB2} />
+      <BreakerSym cx={brM2X} cy={busY} br={brM2} onClick={() => onBreakerClick?.('52-M2')} />
+      <W x1={brM2X + 7} y1={busY} x2={m2X - 22} y2={busY} color={m2.available ? C_M2 : DE_ENRG} />
+      <SourceSym cx={m2X} cy={busY} id="M2" voltage={m2.voltage} available={m2.available} />
 
-      {/* Transfer timers */}
-      {xferTimer && !xferTimer.complete && (
-        <TimerArc cx={245} cy={60} r={14} progress={xferTimer.elapsedMs / xferTimer.durationMs} label="XFR" />
+      {/* Timer arcs — anchored to the tie region */}
+      {xferT && !xferT.complete && (
+        <TimerArc cx={loadAX} cy={busY - 36} r={16}
+          progress={xferT.elapsedMs / xferT.durationMs} label="XFR" />
       )}
-      {parallelTimer && !parallelTimer.complete && (
-        <TimerArc cx={350} cy={55} r={16} progress={parallelTimer.elapsedMs / parallelTimer.durationMs} label="PAR" />
+      {parT && !parT.complete && (
+        <TimerArc cx={brTX} cy={busY - 36} r={18}
+          progress={parT.elapsedMs / parT.durationMs} label="PAR" />
       )}
-      {retranTimer && !retranTimer.complete && (
-        <TimerArc cx={455} cy={60} r={14} progress={retranTimer.elapsedMs / retranTimer.durationMs} label="RTR" />
+      {retrT && !retrT.complete && (
+        <TimerArc cx={loadBX} cy={busY - 36} r={16}
+          progress={retrT.elapsedMs / retrT.durationMs} label="RTR" />
       )}
-
-      {/* 52-T */}
-      <line x1="325" y1="90" x2="340" y2="90" stroke="#475569" strokeWidth="2" />
-      <BreakerSymbol x={354} y={90} breaker={br_t} onClick={() => onBreakerClick?.('52-T')} label="52-T" />
-      <line x1="368" y1="90" x2="385" y2="90" stroke="#475569" strokeWidth="2" />
-
-      {/* Bus 2 */}
-      <BusLine x={385} y={85} width={160} bus={bus2} label="BUS 2" fillTransition={fillTransition} />
-
-      {/* Load 2 */}
-      <LoadSymbol x={465} y={95} loadKW={bus2.loadKW} energized={bus2.energized} />
-
-      {/* 52-M2 */}
-      <line x1="545" y1="90" x2="565" y2="90" stroke="#475569" strokeWidth="2" />
-      <BreakerSymbol x={579} y={90} breaker={br_m2} onClick={() => onBreakerClick?.('52-M2')} label="52-M2" />
-      <line x1="593" y1="90" x2="626" y2="90" stroke="#475569" strokeWidth="2" />
-
-      {/* M2 */}
-      <circle cx="650" cy="90" r="24" fill="none" stroke={getSourceColor('M2')} strokeWidth="2.5" />
-      <text x="650" y="86" textAnchor="middle" fill={getSourceColor('M2')} fontSize="12" fontWeight="bold">M2</text>
-      <text x="650" y="100" textAnchor="middle" fill={getSourceColor('M2')} fontSize="9">{m2.voltage.toFixed(0)}%</text>
     </svg>
   );
 }
 
-// ─── MMM Layout ──────────────────────────────────────────────────────────────
+// ─── MMM layout ───────────────────────────────────────────────────────────────
 
 function MMMLayout({ state, onBreakerClick }: Props) {
   const { sources, breakers, buses, activeTimers, speed } = state;
-  const fillTransition = speed <= 0.25 ? 'fill 0.4s ease' : 'fill 0.08s ease';
-  const m1 = sources.find(s => s.id === 'M1')!;
-  const m2 = sources.find(s => s.id === 'M2')!;
-  const m3 = sources.find(s => s.id === 'M3')!;
-  const br_m1 = breakers.find(b => b.id === '52-M1')!;
-  const br_t1 = breakers.find(b => b.id === '52-T1')!;
-  const br_t2 = breakers.find(b => b.id === '52-T2')!;
-  const br_m3 = breakers.find(b => b.id === '52-M3')!;
+  const m1   = sources.find(s => s.id === 'M1')!;
+  const m2   = sources.find(s => s.id === 'M2')!;
+  const m3   = sources.find(s => s.id === 'M3')!;
+  const brM1 = breakers.find(b => b.id === '52-M1')!;
+  const brT1 = breakers.find(b => b.id === '52-T1')!;
+  const brT2 = breakers.find(b => b.id === '52-T2')!;
+  const brM3 = breakers.find(b => b.id === '52-M3')!;
   const bus1 = buses.find(b => b.id === 'BUS1')!;
   const bus2 = buses.find(b => b.id === 'BUS2')!;
   const bus3 = buses.find(b => b.id === 'BUS3')!;
+  const trans = speed <= 0.25 ? 'stroke 0.4s ease' : undefined;
 
-  const xferTimer = activeTimers.find(t => t.id === 'XFER_DELAY');
-  const retranTimer = activeTimers.find(t => t.id === 'RETRANSFER');
+  const xferT = activeTimers.find(t => t.id === 'XFER_DELAY');
+  const retrT = activeTimers.find(t => t.id === 'RETRANSFER');
+
+  const busY = 110;
+  const loadY = busY + 24;
+
+  // Horizontal layout across 1000px
+  const m1X    =  60;
+  const brM1X  = 120;
+  const bus1X1 = 160; const bus1X2 = 280;
+  const load1X = 220;
+  const brT1X  = 320;
+  const bus2X1 = 360; const bus2X2 = 560;
+  const load2X = 460; // M2 drop here
+  const m2dropY = 50; // M2 source above BUS-2
+  const brT2X  = 600;
+  const bus3X1 = 640; const bus3X2 = 760;
+  const load3X = 700;
+  const brM3X  = 800;
+  const m3X    = 860;
+
+  const fcB1 = bus1.energized ? srcColor(bus1.sourceId) : DE_ENRG;
+  const fcB2 = bus2.energized ? srcColor(bus2.sourceId) : DE_ENRG;
+  const fcB3 = bus3.energized ? srcColor(bus3.sourceId) : DE_ENRG;
 
   return (
-    <svg viewBox="0 0 900 180" width="100%" style={{ maxHeight: 220 }}>
+    <svg viewBox="0 0 940 260" width="100%" style={{ maxHeight: 260 }}>
       {/* M1 */}
-      <circle cx="45" cy="90" r="22" fill="none" stroke={getSourceColor('M1')} strokeWidth="2.5" />
-      <text x="45" y="86" textAnchor="middle" fill={getSourceColor('M1')} fontSize="11" fontWeight="bold">M1</text>
-      <text x="45" y="99" textAnchor="middle" fill={getSourceColor('M1')} fontSize="9">{m1.voltage.toFixed(0)}%</text>
+      <SourceSym cx={m1X} cy={busY} id="M1" voltage={m1.voltage} available={m1.available} />
+      <W x1={m1X + 22} y1={busY} x2={brM1X - 7} y2={busY} color={m1.available ? C_M1 : DE_ENRG} />
+      <BreakerSym cx={brM1X} cy={busY} br={brM1} onClick={() => onBreakerClick?.('52-M1')} />
+      <W x1={brM1X + 7} y1={busY} x2={bus1X1} y2={busY} color={fcB1} />
 
-      <line x1="67" y1="90" x2="95" y2="90" stroke="#475569" strokeWidth="2" />
-      <BreakerSymbol x={109} y={90} breaker={br_m1} onClick={() => onBreakerClick?.('52-M1')} label="52-M1" />
-      <line x1="123" y1="90" x2="145" y2="90" stroke="#475569" strokeWidth="2" />
+      {/* BUS-1 */}
+      <BusLine x1={bus1X1} y={busY} x2={bus1X2} bus={bus1} label="BUS-1" fillTransition={trans} />
+      <W x1={load1X} y1={busY + 2} x2={load1X} y2={loadY} color={fcB1} />
+      <LoadSym cx={load1X} topY={loadY} loadKW={bus1.loadKW} bus={bus1} />
 
-      {/* Bus 1 */}
-      <BusLine x={145} y={85} width={130} bus={bus1} label="BUS 1" fillTransition={fillTransition} />
-      <LoadSymbol x={210} y={95} loadKW={bus1.loadKW} energized={bus1.energized} />
+      {/* BUS-1 → 52-T1 */}
+      <W x1={bus1X2} y1={busY} x2={brT1X - 7} y2={busY} color={fcB1} />
+      <BreakerSym cx={brT1X} cy={busY} br={brT1} onClick={() => onBreakerClick?.('52-T1')} />
+      <W x1={brT1X + 7} y1={busY} x2={bus2X1} y2={busY} color={fcB2} />
 
-      {xferTimer && !xferTimer.complete && (
-        <TimerArc cx={210} cy={60} r={12} progress={xferTimer.elapsedMs / xferTimer.durationMs} label="XFR" />
+      {/* BUS-2 */}
+      <BusLine x1={bus2X1} y={busY} x2={bus2X2} bus={bus2} label="BUS-2" fillTransition={trans} />
+
+      {/* M2 drops vertically to BUS-2 */}
+      <SourceSym cx={load2X} cy={m2dropY} id="M2" voltage={m2.voltage} available={m2.available} />
+      <W x1={load2X} y1={m2dropY + 22} x2={load2X} y2={busY} color={m2.available ? C_M2 : DE_ENRG} />
+
+      {/* BUS-2 → 52-T2 */}
+      <W x1={bus2X2} y1={busY} x2={brT2X - 7} y2={busY} color={fcB2} />
+      <BreakerSym cx={brT2X} cy={busY} br={brT2} onClick={() => onBreakerClick?.('52-T2')} />
+      <W x1={brT2X + 7} y1={busY} x2={bus3X1} y2={busY} color={fcB3} />
+
+      {/* BUS-3 */}
+      <BusLine x1={bus3X1} y={busY} x2={bus3X2} bus={bus3} label="BUS-3" fillTransition={trans} />
+      <W x1={load3X} y1={busY + 2} x2={load3X} y2={loadY} color={fcB3} />
+      <LoadSym cx={load3X} topY={loadY} loadKW={bus3.loadKW} bus={bus3} />
+
+      {/* BUS-3 → 52-M3 → M3 */}
+      <W x1={bus3X2} y1={busY} x2={brM3X - 7} y2={busY} color={fcB3} />
+      <BreakerSym cx={brM3X} cy={busY} br={brM3} onClick={() => onBreakerClick?.('52-M3')} />
+      <W x1={brM3X + 7} y1={busY} x2={m3X - 22} y2={busY} color={m3.available ? C_M3 : DE_ENRG} />
+      <SourceSym cx={m3X} cy={busY} id="M3" voltage={m3.voltage} available={m3.available} />
+
+      {/* Timer arcs */}
+      {xferT && !xferT.complete && (
+        <TimerArc cx={load1X} cy={busY - 40} r={14}
+          progress={xferT.elapsedMs / xferT.durationMs} label="XFR" />
       )}
-
-      {/* 52-T1 */}
-      <line x1="275" y1="90" x2="295" y2="90" stroke="#475569" strokeWidth="2" />
-      <BreakerSymbol x={309} y={90} breaker={br_t1} onClick={() => onBreakerClick?.('52-T1')} label="52-T1" />
-      <line x1="323" y1="90" x2="345" y2="90" stroke="#475569" strokeWidth="2" />
-
-      {/* Bus 2 — M2 always connected */}
-      <BusLine x={345} y={85} width={130} bus={bus2} label="BUS 2" fillTransition={fillTransition} />
-      <LoadSymbol x={410} y={95} loadKW={bus2.loadKW} energized={bus2.energized} />
-
-      {/* M2 drops down from bus2 */}
-      <line x1="410" y1="85" x2="410" y2="40" stroke="#475569" strokeWidth="1.5" strokeDasharray="4,2" />
-      <circle cx="410" cy="25" r="16" fill="none" stroke={getSourceColor('M2')} strokeWidth="2" />
-      <text x="410" y="21" textAnchor="middle" fill={getSourceColor('M2')} fontSize="10" fontWeight="bold">M2</text>
-      <text x="410" y="33" textAnchor="middle" fill={getSourceColor('M2')} fontSize="8">{m2.voltage.toFixed(0)}%</text>
-
-      {retranTimer && !retranTimer.complete && (
-        <TimerArc cx={410} cy={60} r={12} progress={retranTimer.elapsedMs / retranTimer.durationMs} label="RTR" />
+      {retrT && !retrT.complete && (
+        <TimerArc cx={load3X} cy={busY - 40} r={14}
+          progress={retrT.elapsedMs / retrT.durationMs} label="RTR" />
       )}
-
-      {/* 52-T2 */}
-      <line x1="475" y1="90" x2="495" y2="90" stroke="#475569" strokeWidth="2" />
-      <BreakerSymbol x={509} y={90} breaker={br_t2} onClick={() => onBreakerClick?.('52-T2')} label="52-T2" />
-      <line x1="523" y1="90" x2="545" y2="90" stroke="#475569" strokeWidth="2" />
-
-      {/* Bus 3 */}
-      <BusLine x={545} y={85} width={130} bus={bus3} label="BUS 3" fillTransition={fillTransition} />
-      <LoadSymbol x={610} y={95} loadKW={bus3.loadKW} energized={bus3.energized} />
-
-      {/* 52-M3 */}
-      <line x1="675" y1="90" x2="700" y2="90" stroke="#475569" strokeWidth="2" />
-      <BreakerSymbol x={714} y={90} breaker={br_m3} onClick={() => onBreakerClick?.('52-M3')} label="52-M3" />
-      <line x1="728" y1="90" x2="755" y2="90" stroke="#475569" strokeWidth="2" />
-
-      {/* M3 */}
-      <circle cx="777" cy="90" r="22" fill="none" stroke={getSourceColor('M3')} strokeWidth="2.5" />
-      <text x="777" y="86" textAnchor="middle" fill={getSourceColor('M3')} fontSize="11" fontWeight="bold">M3</text>
-      <text x="777" y="99" textAnchor="middle" fill={getSourceColor('M3')} fontSize="9">{m3.voltage.toFixed(0)}%</text>
     </svg>
   );
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
+
+const LEGEND_ITEMS = [
+  { color: C_M1,    label: 'M1 energized' },
+  { color: C_M2,    label: 'M2 energized' },
+  { color: C_M3,    label: 'M3 energized' },
+  { color: DE_ENRG, label: 'De-energized' },
+  { color: C_FAULT, label: 'Operating / fault' },
+  { color: BODY,    label: 'Device body' },
+];
 
 export default function OneLine({ state, onBreakerClick }: Props) {
-  const schemeColor: Record<string, string> = {
-    NORMAL_M1: '#22c55e',
-    NORMAL_M2: '#3b82f6',
-    NORMAL_M3: '#a855f7',
-    TIE_FROM_M1: '#22c55e',
-    TIE_FROM_M2: '#3b82f6',
-    TIE_FROM_M3: '#a855f7',
-    BOTH_DEAD: '#ef4444',
-    ALL_DEAD: '#ef4444',
-    PARALLEL: '#f59e0b',
-    LOCKOUT: '#ef4444',
-    MANUAL_OVERRIDE: '#8b5cf6',
-    INIT: '#64748b',
-  };
-
   return (
     <div style={{ padding: '16px' }}>
-      <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span style={{ color: '#64748b', fontSize: '0.8rem', fontFamily: 'monospace' }}>ONE-LINE DIAGRAM</span>
+      {/* Diagram title bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '12px',
+        marginBottom: '8px',
+        borderBottom: '1px solid #1e293b', paddingBottom: '6px',
+      }}>
         <span style={{
-          background: schemeColor[state.schemeState] ?? '#475569',
-          color: '#0f172a',
-          padding: '2px 10px',
-          borderRadius: '99px',
-          fontSize: '0.75rem',
-          fontWeight: 700,
-          fontFamily: 'monospace',
+          color: BODY, fontSize: '0.72rem', fontFamily: FONT,
+          letterSpacing: '0.1em', fontWeight: 700,
         }}>
-          {state.schemeState}
+          ONE-LINE DIAGRAM — {state.topology}
+        </span>
+        <span style={{
+          color: '#475569', fontSize: '0.7rem', fontFamily: FONT,
+          letterSpacing: '0.06em',
+        }}>
+          IEEE/ANSI STD 315
         </span>
       </div>
 
+      {/* Drawing area */}
       <div style={{
-        background: '#1a2744',
-        borderRadius: '8px',
-        padding: '16px',
+        background: '#0a1020',
         border: '1px solid #1e293b',
+        borderRadius: '4px',
+        padding: '16px',
+        overflow: 'hidden',
       }}>
         {state.topology === 'TWO_SOURCE' && (
           <TwoSourceLayout state={state} onBreakerClick={onBreakerClick} />
@@ -521,22 +534,32 @@ export default function OneLine({ state, onBreakerClick }: Props) {
         )}
       </div>
 
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: '16px', marginTop: '8px', flexWrap: 'wrap' }}>
-        {[
-          { color: COLOR_BREAKER_CLOSED, label: 'Closed' },
-          { color: COLOR_BREAKER_OPEN, label: 'Open' },
-          { color: COLOR_BREAKER_OPERATING, label: 'Operating' },
-          { color: COLOR_ENERGIZED_M1, label: 'M1 fed' },
-          { color: COLOR_ENERGIZED_M2, label: 'M2 fed' },
-          { color: COLOR_ENERGIZED_M3, label: 'M3 fed' },
-          { color: COLOR_DEAD, label: 'Dead' },
-        ].map(({ color, label }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div style={{ width: 10, height: 10, background: color, borderRadius: 2 }} />
-            <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{label}</span>
+      {/* Legend — only technical items, no decorative elements */}
+      <div style={{
+        display: 'flex', gap: '20px', marginTop: '8px',
+        flexWrap: 'wrap', alignItems: 'center',
+      }}>
+        {LEGEND_ITEMS.map(({ color, label }) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <div style={{ width: 20, height: 3, background: color }} />
+            <span style={{ color: '#475569', fontSize: '0.68rem', fontFamily: FONT }}>
+              {label}
+            </span>
           </div>
         ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <svg width="14" height="14">
+            <rect x="1" y="1" width="12" height="12" fill={BODY_FILL} stroke={BODY} strokeWidth="1.5" />
+            <line x1="3" y1="3" x2="11" y2="11" stroke={BODY} strokeWidth="1.5" />
+          </svg>
+          <span style={{ color: '#475569', fontSize: '0.68rem', fontFamily: FONT }}>52 open</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <svg width="14" height="14">
+            <rect x="1" y="1" width="12" height="12" fill={BODY} stroke={BODY} strokeWidth="1.5" />
+          </svg>
+          <span style={{ color: '#475569', fontSize: '0.68rem', fontFamily: FONT }}>52 closed</span>
+        </div>
       </div>
     </div>
   );

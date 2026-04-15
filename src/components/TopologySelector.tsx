@@ -3,6 +3,7 @@ import { Topology } from '../engine/types';
 
 interface Props {
   onSelect: (topology: Topology) => void;
+  onCustom: () => void;
 }
 
 const cardStyle: React.CSSProperties = {
@@ -134,7 +135,7 @@ function MMMSvg() {
   );
 }
 
-export default function TopologySelector({ onSelect }: Props) {
+export default function TopologySelector({ onSelect, onCustom }: Props) {
   const [hovered, setHovered] = React.useState<Topology | null>(null);
 
   const getCardStyle = (topo: Topology): React.CSSProperties => ({
@@ -222,6 +223,45 @@ export default function TopologySelector({ onSelect }: Props) {
             <div style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '6px' }}>
               Three buses with two tie breakers.<br />
               M1—Bus1—T1—Bus2—T2—Bus3—M3
+            </div>
+          </div>
+        </div>
+      </div>
+
+        {/* Custom topology builder */}
+        <div
+          style={{
+            ...cardStyle,
+            borderColor: '#475569',
+            borderStyle: 'dashed',
+            opacity: 0.85,
+          }}
+          onClick={onCustom}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => e.key === 'Enter' && onCustom()}
+        >
+          {/* Simple grid icon */}
+          <svg viewBox="0 0 240 80" width="220" height="80">
+            {[40, 80, 120, 160, 200].map(x => (
+              <line key={x} x1={x} y1={10} x2={x} y2={70} stroke="#334155" strokeWidth={1} />
+            ))}
+            {[20, 40, 60].map(y => (
+              <line key={y} x1={20} y1={y} x2={220} y2={y} stroke="#334155" strokeWidth={1} />
+            ))}
+            <circle cx={40}  cy={40} r={6} fill="none" stroke="#22c55e" strokeWidth={2} />
+            <line x1={46}    y1={40} x2={74}  y2={40} stroke="#475569" strokeWidth={1.5} />
+            <rect  x={74}    y={34} width={12} height={12} fill="#334155" stroke="#94a3b8" strokeWidth={1.5} />
+            <line x1={86}    y1={40} x2={120} y2={40} stroke="#475569" strokeWidth={1.5} />
+            <line x1={120}   y1={20} x2={200} y2={20} stroke="#3b82f6" strokeWidth={3} strokeLinecap="square" />
+            <line x1={120}   y1={60} x2={200} y2={60} stroke="#475569" strokeWidth={3} strokeLinecap="square" />
+            <text x={120} y={50} fill="#475569" fontSize="9" fontFamily="monospace">BUS-A</text>
+          </svg>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#94a3b8', fontWeight: 600, fontSize: '1.1rem' }}>Build Custom Topology</div>
+            <div style={{ color: '#475569', fontSize: '0.85rem', marginTop: '6px' }}>
+              Grid-based drag-and-drop editor.<br />
+              Place sources, breakers, buses and wires.
             </div>
           </div>
         </div>
