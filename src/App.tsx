@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Topology } from './engine/types';
 import { GraphTopology } from './engine/graphTopology';
+import { TopologyModel } from './engine/TopologyInterpreter';
 import { useSimulation } from './hooks/useSimulation';
 import TopologyMenu from './components/TopologyMenu';
 import TopologyBuilder from './components/TopologyBuilder';
+import TopologyViewer from './components/TopologyViewer';
 import OneLine from './components/OneLine';
 import SourcePanel from './components/SourcePanel';
 import SchemeSettings from './components/SchemeSettings';
@@ -12,59 +14,74 @@ import SimControls from './components/SimControls';
 import ScenarioSelector from './components/ScenarioSelector';
 import './App.css';
 
-type AppView = 'MENU' | 'BUILD' | 'SIM';
+type AppView = 'MENU' | 'BUILD' | 'VIEW' | 'SIM';
 
 export default function App() {
-  const [view, setView] = useState<AppView>('MENU');
-  const [topology, setTopology] = useState<Topology | null>(null);
+  const [view,              setView]              = useState<AppView>('MENU');
+  const [topology,          setTopology]          = useState<Topology | null>(null);
+  const [loadedModel,       setLoadedModel]       = useState<TopologyModel | null>(null);
   const [initialBuilderTopo, setInitialBuilderTopo] = useState<GraphTopology | null>(null);
-  // Changing builderKey forces TopologyBuilder to fully remount, guaranteeing
-  // the lazy useReducer initializer runs with the correct initialTopo.
+  // Incrementing builderKey forces TopologyBuilder to fully remount so its
+  // lazy useReducer initializer runs with the correct initialTopo.
   const [builderKey, setBuilderKey] = useState(0);
   const sim = useSimulation();
 
-  // ── Topology selection (preset) ────────────────────────────────────────────
+  // ── Preset topology selected from menu ────────────────────────────────────
   const handleSelectTopology = (t: Topology) => {
     setTopology(t);
     sim.dispatch.setTopology(t);
     setView('SIM');
   };
 
-  // ── Load a saved topology file from the menu → open builder ───────────────
-  const handleLoadFromMenu = (topo: GraphTopology) => {
+  // ── File loaded from menu → go to View mode ───────────────────────────────
+  const handleLoadFromMenu = (model: TopologyModel) => {
+    setLoadedModel(model);
+    setView('VIEW');
+  };
+
+  // ── Run simulation from View mode ─────────────────────────────────────────
+  const handleRunSimFromViewer = (preset: Topology) => {
+    setTopology(preset);
+    sim.dispatch.setTopology(preset);
+    setView('SIM');
+  };
+
+  // ── Edit in Builder from View mode ────────────────────────────────────────
+  const handleEditFromViewer = (topo: GraphTopology) => {
     setInitialBuilderTopo(topo);
-    setBuilderKey(k => k + 1); // Force fresh mount so lazy initializer sees new topo
+    setBuilderKey(k => k + 1);
     setView('BUILD');
   };
 
-  // ── Custom topology from builder ───────────────────────────────────────────
+  // ── Custom topology from builder → launch simulation ──────────────────────
   const handleCustomSim = (_topo: GraphTopology) => {
-    // Fallback: treat as MTM preset so all existing FSM code works.
+    // Simulation engine currently runs preset FSMs; MTM is the closest generic fit.
     setTopology('MTM');
     sim.dispatch.setTopology('MTM');
     setView('SIM');
   };
 
-  // ── Reset → main menu ──────────────────────────────────────────────────────
+  // ── Reset → main menu ─────────────────────────────────────────────────────
   const handleReset = () => {
     sim.dispatch.resetSim();
     setTopology(null);
+    setLoadedModel(null);
     setInitialBuilderTopo(null);
     setView('MENU');
   };
 
   const handleExportLog = () => {
-    const csv = sim.dispatch.exportLog();
+    const csv  = sim.dispatch.exportLog();
     const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
     a.href = url;
     a.download = `ats-log-${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  // ── Render: main menu ──────────────────────────────────────────────────────
+  // ── Render: main menu ─────────────────────────────────────────────────────
   if (view === 'MENU') {
     return (
       <TopologyMenu
@@ -75,7 +92,7 @@ export default function App() {
     );
   }
 
-  // ── Render: custom topology builder ───────────────────────────────────────
+  // ── Render: custom topology builder ──────────────────────────────────────
   if (view === 'BUILD') {
     return (
       <TopologyBuilder
@@ -87,7 +104,19 @@ export default function App() {
     );
   }
 
-  // ── Render: simulator ──────────────────────────────────────────────────────
+  // ── Render: topology viewer (loaded or imported) ──────────────────────────
+  if (view === 'VIEW' && loadedModel) {
+    return (
+      <TopologyViewer
+        model={loadedModel}
+        onRunSimulation={handleRunSimFromViewer}
+        onEditInBuilder={handleEditFromViewer}
+        onBack={handleReset}
+      />
+    );
+  }
+
+  // ── Render: simulator ─────────────────────────────────────────────────────
   const { state, dispatch } = sim;
 
   return (

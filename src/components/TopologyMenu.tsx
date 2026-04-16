@@ -4,8 +4,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { Topology } from '../engine/types';
-import { GraphTopology } from '../engine/graphTopology';
-import { parseTopologyJSON } from '../engine/topoSchema';
+import { interpretTopologyJSON, TopologyModel } from '../engine/TopologyInterpreter';
 import AnimatedBackground from './AnimatedBackground';
 
 // ─── Preview SVGs (inline, no external dependencies) ─────────────────────────
@@ -232,7 +231,8 @@ function AboutOverlay({ onClose }: { onClose: () => void }) {
 interface Props {
   onSelect: (t: Topology) => void;
   onCustom: () => void;
-  onLoadFile: (topo: GraphTopology) => void;
+  /** Called with a fully interpreted TopologyModel on successful file load */
+  onLoadFile: (model: TopologyModel) => void;
 }
 
 export default function TopologyMenu({ onSelect, onCustom, onLoadFile }: Props) {
@@ -261,11 +261,12 @@ export default function TopologyMenu({ onSelect, onCustom, onLoadFile }: Props) 
       if (!file) return;
       file.text()
         .then(text => {
-          const result = parseTopologyJSON(text);
+          // Full interpretation pipeline: parse → detect → normalize → validate → resolve
+          const result = interpretTopologyJSON(text, file.name);
           if (!result.ok) {
             setLoadErrors(result.errors);
           } else {
-            onLoadFile(result.topo);
+            onLoadFile(result.model);
           }
         })
         .catch(() => setLoadErrors(['Could not read the file — please try again']));
