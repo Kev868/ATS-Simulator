@@ -1,0 +1,358 @@
+{
+  "id": "offshore-platform-delta9",
+  "name": "Offshore Platform Delta-9 — Emergency Power Distribution",
+  "gridPx": 20,
+  "canvasW": 54,
+  "canvasH": 25,
+  "components": [
+    {
+      "id": "UTIL-ALPHA",
+      "type": "SOURCE",
+      "role": "PREFERRED_SOURCE",
+      "tag": "UTIL-ALPHA",
+      "ansiNumber": "",
+      "x": 3, "y": 10, "rotation": 0,
+      "ports": [
+        { "id": "out", "label": "Out", "enabled": true, "dx": 1, "dy": 0, "connectedWireIds": ["w1"] }
+      ],
+      "props": {
+        "sourceType": "UTILITY",
+        "nominalVoltage": 13.8,
+        "nominalFrequency": 60,
+        "voltage": 100,
+        "frequency": 60,
+        "phaseAngle": 0,
+        "available": true
+      }
+    },
+    {
+      "id": "52-U1",
+      "type": "BREAKER",
+      "role": "SOURCE_BREAKER",
+      "tag": "52-U1",
+      "ansiNumber": "52",
+      "x": 7, "y": 10, "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "L", "enabled": true, "dx": -1, "dy": 0, "connectedWireIds": ["w1"] },
+        { "id": "right", "label": "R", "enabled": true, "dx":  1, "dy": 0, "connectedWireIds": ["w2"] }
+      ],
+      "props": { "breakerState": "CLOSED", "operationTimeMs": 60, "lockedOut": false, "elapsed": 0 }
+    },
+    {
+      "id": "BUS-MAIN",
+      "type": "BUS",
+      "role": "MAIN_BUS",
+      "tag": "BUS-MAIN",
+      "ansiNumber": "",
+      "x": 13, "y": 10, "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "L",  "enabled": true, "dx": -2, "dy":  0, "connectedWireIds": ["w2"]  },
+        { "id": "right", "label": "R",  "enabled": true, "dx":  2, "dy":  0, "connectedWireIds": ["w3"]  },
+        { "id": "bot1",  "label": "B1", "enabled": true, "dx": -1, "dy":  2, "connectedWireIds": ["w13"] },
+        { "id": "bot2",  "label": "B2", "enabled": true, "dx":  1, "dy":  2, "connectedWireIds": ["w9"]  }
+      ],
+      "props": {}
+    },
+    {
+      "id": "52-T1",
+      "type": "BREAKER",
+      "role": "TIE_BREAKER",
+      "tag": "52-TIE-1",
+      "ansiNumber": "52",
+      "x": 19, "y": 10, "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "L", "enabled": true, "dx": -1, "dy": 0, "connectedWireIds": ["w3"] },
+        { "id": "right", "label": "R", "enabled": true, "dx":  1, "dy": 0, "connectedWireIds": ["w4"] }
+      ],
+      "props": { "breakerState": "OPEN", "operationTimeMs": 150, "lockedOut": false, "elapsed": 0 }
+    },
+    {
+      "id": "BUS-EMER",
+      "type": "BUS",
+      "role": "SECONDARY_BUS",
+      "tag": "BUS-EMER",
+      "ansiNumber": "",
+      "x": 25, "y": 10, "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "L",  "enabled": true, "dx": -2, "dy":  0, "connectedWireIds": ["w4"]  },
+        { "id": "right", "label": "R",  "enabled": true, "dx":  2, "dy":  0, "connectedWireIds": ["w5"]  },
+        { "id": "bot1",  "label": "B1", "enabled": true, "dx": -1, "dy":  2, "connectedWireIds": ["w14"] },
+        { "id": "bot2",  "label": "B2", "enabled": true, "dx":  1, "dy":  2, "connectedWireIds": ["w15"] }
+      ],
+      "props": {}
+    },
+    {
+      "id": "52-T2",
+      "type": "BREAKER",
+      "role": "TIE_BREAKER",
+      "tag": "52-TIE-2",
+      "ansiNumber": "52",
+      "x": 31, "y": 10, "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "L", "enabled": true, "dx": -1, "dy": 0, "connectedWireIds": ["w5"] },
+        { "id": "right", "label": "R", "enabled": true, "dx":  1, "dy": 0, "connectedWireIds": ["w6"] }
+      ],
+      "props": { "breakerState": "OPEN", "operationTimeMs": 150, "lockedOut": false, "elapsed": 0 }
+    },
+    {
+      "id": "BUS-AUX",
+      "type": "BUS",
+      "role": "TERTIARY_BUS",
+      "tag": "BUS-AUX",
+      "ansiNumber": "",
+      "x": 37, "y": 10, "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "L",  "enabled": true, "dx": -2, "dy":  0, "connectedWireIds": ["w6"]  },
+        { "id": "right", "label": "R",  "enabled": true, "dx":  2, "dy":  0, "connectedWireIds": ["w7"]  },
+        { "id": "bot1",  "label": "B1", "enabled": true, "dx": -1, "dy":  2, "connectedWireIds": ["w16"] },
+        { "id": "bot2",  "label": "B2", "enabled": true, "dx":  1, "dy":  2, "connectedWireIds": ["w11"] }
+      ],
+      "props": {}
+    },
+    {
+      "id": "52-U2",
+      "type": "BREAKER",
+      "role": "SOURCE_BREAKER",
+      "tag": "52-U2",
+      "ansiNumber": "52",
+      "x": 43, "y": 10, "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "L", "enabled": true, "dx": -1, "dy": 0, "connectedWireIds": ["w7"] },
+        { "id": "right", "label": "R", "enabled": true, "dx":  1, "dy": 0, "connectedWireIds": ["w8"] }
+      ],
+      "props": { "breakerState": "OPEN", "operationTimeMs": 60, "lockedOut": false, "elapsed": 0 }
+    },
+    {
+      "id": "UTIL-BRAVO",
+      "type": "SOURCE",
+      "role": "ALTERNATE_SOURCE",
+      "tag": "UTIL-BRAVO",
+      "ansiNumber": "",
+      "x": 47, "y": 10, "rotation": 0,
+      "ports": [
+        { "id": "out", "label": "Out", "enabled": true, "dx": 1, "dy": 0, "connectedWireIds": ["w8"] }
+      ],
+      "props": {
+        "sourceType": "UTILITY",
+        "nominalVoltage": 13.8,
+        "nominalFrequency": 60,
+        "voltage": 87,
+        "frequency": 59.7,
+        "phaseAngle": 3.1,
+        "available": true
+      }
+    },
+    {
+      "id": "52-GA",
+      "type": "BREAKER",
+      "role": "SOURCE_BREAKER",
+      "tag": "52-GEN-A",
+      "ansiNumber": "52",
+      "x": 14, "y": 16, "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "T", "enabled": true, "dx": 0, "dy": -2, "connectedWireIds": ["w9"]  },
+        { "id": "right", "label": "B", "enabled": true, "dx": 0, "dy":  2, "connectedWireIds": ["w10"] }
+      ],
+      "props": { "breakerState": "OPEN", "operationTimeMs": 200, "lockedOut": false, "elapsed": 0 }
+    },
+    {
+      "id": "GEN-ALPHA",
+      "type": "SOURCE",
+      "role": "TERTIARY_SOURCE",
+      "tag": "GEN-ALPHA",
+      "ansiNumber": "",
+      "x": 14, "y": 21, "rotation": 0,
+      "ports": [
+        { "id": "out", "label": "Out", "enabled": true, "dx": 0, "dy": -1, "connectedWireIds": ["w10"] }
+      ],
+      "props": {
+        "sourceType": "GENERATOR",
+        "nominalVoltage": 13.8,
+        "nominalFrequency": 60,
+        "voltage": 100,
+        "frequency": 60,
+        "phaseAngle": 0,
+        "available": false
+      }
+    },
+    {
+      "id": "52-GB",
+      "type": "BREAKER",
+      "role": "SOURCE_BREAKER",
+      "tag": "52-GEN-B",
+      "ansiNumber": "52",
+      "x": 38, "y": 16, "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "T", "enabled": true, "dx": 0, "dy": -2, "connectedWireIds": ["w11"] },
+        { "id": "right", "label": "B", "enabled": true, "dx": 0, "dy":  2, "connectedWireIds": ["w12"] }
+      ],
+      "props": { "breakerState": "OPEN", "operationTimeMs": 250, "lockedOut": false, "elapsed": 0 }
+    },
+    {
+      "id": "GEN-BRAVO",
+      "type": "SOURCE",
+      "role": "TERTIARY_SOURCE",
+      "tag": "GEN-BRAVO",
+      "ansiNumber": "",
+      "x": 38, "y": 21, "rotation": 0,
+      "ports": [
+        { "id": "out", "label": "Out", "enabled": true, "dx": 0, "dy": -1, "connectedWireIds": ["w12"] }
+      ],
+      "props": {
+        "sourceType": "GENERATOR",
+        "nominalVoltage": 13.8,
+        "nominalFrequency": 60,
+        "voltage": 100,
+        "frequency": 60,
+        "phaseAngle": 0,
+        "available": false
+      }
+    },
+    {
+      "id": "LOAD-PROCESS",
+      "type": "LOAD",
+      "role": "AGGREGATE_LOAD",
+      "tag": "LOAD-PROCESS",
+      "ansiNumber": "",
+      "x": 12, "y": 18, "rotation": 0,
+      "ports": [
+        { "id": "top", "label": "In", "enabled": true, "dx": 0, "dy": -1, "connectedWireIds": ["w13"] }
+      ],
+      "props": { "loadKW": 2500 }
+    },
+    {
+      "id": "LOAD-ESSENTIAL",
+      "type": "LOAD",
+      "role": "AGGREGATE_LOAD",
+      "tag": "LOAD-ESSENTIAL",
+      "ansiNumber": "",
+      "x": 24, "y": 18, "rotation": 0,
+      "ports": [
+        { "id": "top", "label": "In", "enabled": true, "dx": 0, "dy": -1, "connectedWireIds": ["w14"] }
+      ],
+      "props": { "loadKW": 800 }
+    },
+    {
+      "id": "LOAD-LIFE-SAFETY",
+      "type": "LOAD",
+      "role": "AGGREGATE_LOAD",
+      "tag": "LOAD-LIFE-SAFETY",
+      "ansiNumber": "",
+      "x": 26, "y": 18, "rotation": 0,
+      "ports": [
+        { "id": "top", "label": "In", "enabled": true, "dx": 0, "dy": -1, "connectedWireIds": ["w15"] }
+      ],
+      "props": { "loadKW": 150 }
+    },
+    {
+      "id": "LOAD-HVAC",
+      "type": "LOAD",
+      "role": "AGGREGATE_LOAD",
+      "tag": "LOAD-HVAC",
+      "ansiNumber": "",
+      "x": 36, "y": 18, "rotation": 0,
+      "ports": [
+        { "id": "top", "label": "In", "enabled": true, "dx": 0, "dy": -1, "connectedWireIds": ["w16"] }
+      ],
+      "props": { "loadKW": 600 }
+    }
+  ],
+  "wires": [
+    {
+      "id": "w1",
+      "fromCompId": "UTIL-ALPHA", "fromPortId": "out",
+      "toCompId":   "52-U1",      "toPortId":   "left",
+      "segments": [{ "x1": 4, "y1": 10, "x2": 6, "y2": 10 }]
+    },
+    {
+      "id": "w2",
+      "fromCompId": "52-U1",    "fromPortId": "right",
+      "toCompId":   "BUS-MAIN", "toPortId":   "left",
+      "segments": [{ "x1": 8, "y1": 10, "x2": 11, "y2": 10 }]
+    },
+    {
+      "id": "w3",
+      "fromCompId": "BUS-MAIN", "fromPortId": "right",
+      "toCompId":   "52-T1",    "toPortId":   "left",
+      "segments": [{ "x1": 15, "y1": 10, "x2": 18, "y2": 10 }]
+    },
+    {
+      "id": "w4",
+      "fromCompId": "52-T1",    "fromPortId": "right",
+      "toCompId":   "BUS-EMER", "toPortId":   "left",
+      "segments": [{ "x1": 20, "y1": 10, "x2": 23, "y2": 10 }]
+    },
+    {
+      "id": "w5",
+      "fromCompId": "BUS-EMER", "fromPortId": "right",
+      "toCompId":   "52-T2",    "toPortId":   "left",
+      "segments": [{ "x1": 27, "y1": 10, "x2": 30, "y2": 10 }]
+    },
+    {
+      "id": "w6",
+      "fromCompId": "52-T2",   "fromPortId": "right",
+      "toCompId":   "BUS-AUX", "toPortId":   "left",
+      "segments": [{ "x1": 32, "y1": 10, "x2": 35, "y2": 10 }]
+    },
+    {
+      "id": "w7",
+      "fromCompId": "BUS-AUX", "fromPortId": "right",
+      "toCompId":   "52-U2",   "toPortId":   "left",
+      "segments": [{ "x1": 39, "y1": 10, "x2": 42, "y2": 10 }]
+    },
+    {
+      "id": "w8",
+      "fromCompId": "52-U2",       "fromPortId": "right",
+      "toCompId":   "UTIL-BRAVO",  "toPortId":   "out",
+      "segments": [{ "x1": 44, "y1": 10, "x2": 48, "y2": 10 }]
+    },
+    {
+      "id": "w9",
+      "fromCompId": "BUS-MAIN", "fromPortId": "bot2",
+      "toCompId":   "52-GA",    "toPortId":   "left",
+      "segments": [{ "x1": 14, "y1": 12, "x2": 14, "y2": 14 }]
+    },
+    {
+      "id": "w10",
+      "fromCompId": "52-GA",     "fromPortId": "right",
+      "toCompId":   "GEN-ALPHA", "toPortId":   "out",
+      "segments": [{ "x1": 14, "y1": 18, "x2": 14, "y2": 20 }]
+    },
+    {
+      "id": "w11",
+      "fromCompId": "BUS-AUX", "fromPortId": "bot2",
+      "toCompId":   "52-GB",   "toPortId":   "left",
+      "segments": [{ "x1": 38, "y1": 12, "x2": 38, "y2": 14 }]
+    },
+    {
+      "id": "w12",
+      "fromCompId": "52-GB",     "fromPortId": "right",
+      "toCompId":   "GEN-BRAVO", "toPortId":   "out",
+      "segments": [{ "x1": 38, "y1": 18, "x2": 38, "y2": 20 }]
+    },
+    {
+      "id": "w13",
+      "fromCompId": "BUS-MAIN",     "fromPortId": "bot1",
+      "toCompId":   "LOAD-PROCESS", "toPortId":   "top",
+      "segments": [{ "x1": 12, "y1": 12, "x2": 12, "y2": 17 }]
+    },
+    {
+      "id": "w14",
+      "fromCompId": "BUS-EMER",      "fromPortId": "bot1",
+      "toCompId":   "LOAD-ESSENTIAL","toPortId":   "top",
+      "segments": [{ "x1": 24, "y1": 12, "x2": 24, "y2": 17 }]
+    },
+    {
+      "id": "w15",
+      "fromCompId": "BUS-EMER",        "fromPortId": "bot2",
+      "toCompId":   "LOAD-LIFE-SAFETY","toPortId":   "top",
+      "segments": [{ "x1": 26, "y1": 12, "x2": 26, "y2": 17 }]
+    },
+    {
+      "id": "w16",
+      "fromCompId": "BUS-AUX",   "fromPortId": "bot1",
+      "toCompId":   "LOAD-HVAC", "toPortId":   "top",
+      "segments": [{ "x1": 36, "y1": 12, "x2": 36, "y2": 17 }]
+    }
+  ]
+}

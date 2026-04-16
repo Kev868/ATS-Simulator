@@ -6,6 +6,7 @@ import {
   GraphTopology, GComponent, GWire, GPort,
   GCompType, GCompRole, GComponentProps,
 } from '../engine/graphTopology';
+import { parseTopologyJSON } from '../engine/topoSchema';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -508,19 +509,23 @@ function makeEmptyTopo(): GraphTopology {
   };
 }
 
-export function useTopologyBuilder() {
-  const [state, dispatch] = useReducer(reducer, {
-    topo: makeEmptyTopo(),
-    selectedId: null,
-    selectedIds: [],
-    placingType: null,
-    ghostRotation: 0,
-    wireStart: null,
-    ghostPos: null,
-    history: [],
-    future: [],
-    dirty: false,
-  });
+export function useTopologyBuilder(initialTopo?: GraphTopology | null) {
+  const [state, dispatch] = useReducer(
+    reducer,
+    initialTopo ?? null,
+    (init): BuilderState => ({
+      topo:          init ?? makeEmptyTopo(),
+      selectedId:    null,
+      selectedIds:   [],
+      placingType:   null,
+      ghostRotation: 0,
+      wireStart:     null,
+      ghostPos:      null,
+      history:       [],
+      future:        [],
+      dirty:         false,
+    })
+  );
 
   const compCount = state.topo.components.length;
   const ghostRotation = state.ghostRotation;
@@ -619,14 +624,14 @@ export function useTopologyBuilder() {
   const saveJSON = useCallback((): string =>
     JSON.stringify(state.topo, null, 2), [state.topo]);
 
-  const loadJSON = useCallback((json: string): boolean => {
-    try {
-      const topo = JSON.parse(json) as GraphTopology;
-      dispatch({ type: 'LOAD_TOPO', topo });
-      return true;
-    } catch {
-      return false;
-    }
+  /** Parse + validate + coerce a JSON string, then load it.
+   *  Returns { ok: true } on success, { ok: false, errors } on failure.
+   *  Never silently falls back to a default topology. */
+  const loadJSON = useCallback((json: string): { ok: true } | { ok: false; errors: string[] } => {
+    const result = parseTopologyJSON(json);
+    if (!result.ok) return result;
+    dispatch({ type: 'LOAD_TOPO', topo: result.topo });
+    return { ok: true };
   }, []);
 
   const markClean = useCallback(() => dispatch({ type: 'MARK_CLEAN' }), []);

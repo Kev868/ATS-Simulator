@@ -10,6 +10,7 @@ import {
 } from '../engine/graphTopology';
 import { useTopologyBuilder, WireStart, routeWire } from '../hooks/useTopologyBuilder';
 import { validateTopology, ValidationResult } from '../engine/topologyValidator';
+import { parseTopologyJSON } from '../engine/topoSchema';
 
 interface Props {
   onStartSimulation: (topo: GraphTopology) => void;
@@ -491,6 +492,55 @@ function UnsavedChangesModal({ onCancel, onSaveAndLeave, onDiscardAndLeave }: {
   );
 }
 
+// ─── Load error modal ─────────────────────────────────────────────────────────
+
+function LoadErrorModal({ errors, onClose, onRetry }: {
+  errors: string[];
+  onClose: () => void;
+  onRetry: () => void;
+}) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onClose]);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000,
+    }}>
+      <div style={{
+        background: '#1e293b', border: '2px solid #ef4444',
+        borderRadius: 8, padding: 24, maxWidth: 540, width: '90%',
+        maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{ color: '#f87171', fontWeight: 700, fontSize: '1rem', marginBottom: 10 }}>
+          ✗ Could Not Load Topology
+        </div>
+        <div style={{ color: '#94a3b8', fontSize: '0.78rem', marginBottom: 10 }}>
+          The file failed schema validation. No changes were made to your current topology.
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1, marginBottom: 16 }}>
+          <ul style={{ color: '#fca5a5', fontSize: '0.78rem', paddingLeft: 16, margin: 0, lineHeight: 1.8 }}>
+            {errors.map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{
+            background: '#334155', color: '#e2e8f0', border: '1px solid #475569',
+            borderRadius: 4, padding: '6px 14px', cursor: 'pointer', fontSize: '0.82rem',
+          }}>Close</button>
+          <button onClick={onRetry} style={{
+            background: '#1d4ed8', color: '#dbeafe', border: '1px solid #2563eb',
+            borderRadius: 4, padding: '6px 14px', cursor: 'pointer', fontSize: '0.82rem',
+          }}>Try Again</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Drag state ───────────────────────────────────────────────────────────────
 
 interface DragState {
@@ -512,9 +562,14 @@ interface RubberBand {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function TopologyBuilder({ onStartSimulation, onBack, initialTopo }: Props) {
-  const { state, selectedComp, selectedWire, actions } = useTopologyBuilder();
+  // initialTopo is passed to the hook's lazy initializer — it becomes the
+  // initial reducer state synchronously, with no useEffect dispatch needed.
+  // App.tsx changes `key` whenever a new file is loaded, guaranteeing a fresh mount.
+  const { state, selectedComp, selectedWire, actions } = useTopologyBuilder(initialTopo);
   const svgRef = useRef<SVGSVGElement>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [loadError, setLoadError] = useState<string[] | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [mouseWire, setMouseWire] = useState<{ x: number; y: number } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [rubberBand, setRubberBand] = useState<RubberBand | null>(null);
@@ -522,11 +577,12 @@ export default function TopologyBuilder({ onStartSimulation, onBack, initialTopo
   // Tracks whether mouse actually moved during a mousedown (to avoid ghost-selecting on release)
   const didDragRef = useRef(false);
 
-  // Load initialTopo on mount if provided
+  // Auto-dismiss toast after 3 s
   useEffect(() => {
-    if (initialTopo) actions.loadTopo(initialTopo);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // Warn browser before unload when dirty
   useEffect(() => {
@@ -781,18 +837,31 @@ export default function TopologyBuilder({ onStartSimulation, onBack, initialTopo
   };
 
   const handleLoad = () => {
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = '.json';
-    inp.onchange = ev => {
-      const file = (ev.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        if (!actions.loadJSON(e.target?.result as string)) alert('Invalid topology file.');
+    // Apply the dirty guard — reuse the same "Discard your work?" modal
+    const doLoad = () => {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = '.json';
+      inp.onchange = ev => {
+        const file = (ev.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        file.text()
+          .then(text => {
+            const result = actions.loadJSON(text);
+            if (result.ok) {
+              // topo.name reflects the OLD state; parse the name from text directly
+              try {
+                const parsed = JSON.parse(text) as { name?: string };
+                setToast(`Loaded "${parsed.name ?? file.name}"`);
+              } catch { setToast(`Loaded "${file.name}"`); }
+            } else {
+              setLoadError(result.errors);
+            }
+          })
+          .catch(() => setLoadError(['Could not read the file — please try again']));
       };
-      reader.readAsText(file);
+      inp.click();
     };
-    inp.click();
+    guardedNav(doLoad);
   };
 
   const handleExportSVG = () => {
@@ -1037,6 +1106,15 @@ export default function TopologyBuilder({ onStartSimulation, onBack, initialTopo
         />
       )}
 
+      {/* ── Load error modal ── */}
+      {loadError && (
+        <LoadErrorModal
+          errors={loadError}
+          onClose={() => setLoadError(null)}
+          onRetry={() => { setLoadError(null); handleLoad(); }}
+        />
+      )}
+
       {/* ── Unsaved changes modal ── */}
       {pendingNav && (
         <UnsavedChangesModal
@@ -1053,6 +1131,20 @@ export default function TopologyBuilder({ onStartSimulation, onBack, initialTopo
             nav();
           }}
         />
+      )}
+
+      {/* ── Toast notification ── */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: '#166534', color: '#dcfce7', border: '1px solid #15803d',
+          borderRadius: 6, padding: '8px 20px', fontSize: '0.85rem',
+          fontFamily: "'Courier New', monospace", zIndex: 3000,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+          animation: 'none',
+        }}>
+          ✓ {toast}
+        </div>
       )}
     </div>
   );

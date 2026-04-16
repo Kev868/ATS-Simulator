@@ -5,6 +5,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Topology } from '../engine/types';
 import { GraphTopology } from '../engine/graphTopology';
+import { parseTopologyJSON } from '../engine/topoSchema';
 import AnimatedBackground from './AnimatedBackground';
 
 // ─── Preview SVGs (inline, no external dependencies) ─────────────────────────
@@ -238,6 +239,7 @@ export default function TopologyMenu({ onSelect, onCustom, onLoadFile }: Props) 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [visiblePreviewId, setVisiblePreviewId] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<'settings' | 'about' | null>(null);
+  const [loadErrors, setLoadErrors] = useState<string[] | null>(null);
 
   // Fade-swap: when hover changes, briefly fade out then show new preview
   const fadeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -251,36 +253,37 @@ export default function TopologyMenu({ onSelect, onCustom, onLoadFile }: Props) 
     }
   }, []);
 
+  const openFilePicker = useCallback(() => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.json';
+    inp.onchange = ev => {
+      const file = (ev.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      file.text()
+        .then(text => {
+          const result = parseTopologyJSON(text);
+          if (!result.ok) {
+            setLoadErrors(result.errors);
+          } else {
+            onLoadFile(result.topo);
+          }
+        })
+        .catch(() => setLoadErrors(['Could not read the file — please try again']));
+    };
+    inp.click();
+  }, [onLoadFile]);
+
   const handleAction = useCallback((item: MenuItem) => {
     switch (item.action) {
       case 'preset-two-source': onSelect('TWO_SOURCE'); break;
       case 'preset-mtm':        onSelect('MTM');        break;
       case 'preset-mmm':        onSelect('MMM');        break;
       case 'custom':            onCustom();             break;
-      case 'load': {
-        const inp = document.createElement('input');
-        inp.type = 'file'; inp.accept = '.json';
-        inp.onchange = ev => {
-          const file = (ev.target as HTMLInputElement).files?.[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = e => {
-            try {
-              const topo = JSON.parse(e.target?.result as string) as GraphTopology;
-              onLoadFile(topo);
-            } catch {
-              alert('Invalid topology file.');
-            }
-          };
-          reader.readAsText(file);
-        };
-        inp.click();
-        break;
-      }
+      case 'load':              openFilePicker();        break;
       case 'settings': setOverlay('settings'); break;
       case 'about':    setOverlay('about');    break;
     }
-  }, [onSelect, onCustom, onLoadFile]);
+  }, [onSelect, onCustom, openFilePicker]);
 
   const activeItem = MENU_ITEMS.find(i => i.id === visiblePreviewId);
 
@@ -388,6 +391,28 @@ export default function TopologyMenu({ onSelect, onCustom, onLoadFile }: Props) 
       {/* ── Overlays ── */}
       {overlay === 'settings' && <SettingsOverlay onClose={() => setOverlay(null)} />}
       {overlay === 'about'    && <AboutOverlay    onClose={() => setOverlay(null)} />}
+
+      {/* ── Load error overlay ── */}
+      {loadErrors && (
+        <ModalOverlay title="Could Not Load Topology" onClose={() => setLoadErrors(null)}>
+          <div style={{ color: '#94a3b8', fontSize: '0.82rem', marginBottom: 12 }}>
+            The file failed schema validation. Errors found:
+          </div>
+          <ul style={{ color: '#fca5a5', fontSize: '0.78rem', paddingLeft: 16, margin: '0 0 8px', lineHeight: 1.8, maxHeight: 240, overflowY: 'auto' }}>
+            {loadErrors.map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+          <button
+            onClick={() => { setLoadErrors(null); openFilePicker(); }}
+            style={{
+              marginTop: 8, background: '#1d4ed8', color: '#dbeafe',
+              border: '1px solid #2563eb', borderRadius: 5,
+              padding: '7px 18px', cursor: 'pointer', fontSize: '0.82rem', marginRight: 8,
+            }}
+          >
+            Try Again
+          </button>
+        </ModalOverlay>
+      )}
     </div>
   );
 }

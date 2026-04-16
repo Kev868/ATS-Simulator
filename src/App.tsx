@@ -18,6 +18,9 @@ export default function App() {
   const [view, setView] = useState<AppView>('MENU');
   const [topology, setTopology] = useState<Topology | null>(null);
   const [initialBuilderTopo, setInitialBuilderTopo] = useState<GraphTopology | null>(null);
+  // Changing builderKey forces TopologyBuilder to fully remount, guaranteeing
+  // the lazy useReducer initializer runs with the correct initialTopo.
+  const [builderKey, setBuilderKey] = useState(0);
   const sim = useSimulation();
 
   // ── Topology selection (preset) ────────────────────────────────────────────
@@ -30,6 +33,7 @@ export default function App() {
   // ── Load a saved topology file from the menu → open builder ───────────────
   const handleLoadFromMenu = (topo: GraphTopology) => {
     setInitialBuilderTopo(topo);
+    setBuilderKey(k => k + 1); // Force fresh mount so lazy initializer sees new topo
     setView('BUILD');
   };
 
@@ -75,6 +79,7 @@ export default function App() {
   if (view === 'BUILD') {
     return (
       <TopologyBuilder
+        key={`builder-${builderKey}`}
         onStartSimulation={handleCustomSim}
         onBack={() => setView('MENU')}
         initialTopo={initialBuilderTopo}
