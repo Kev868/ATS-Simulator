@@ -1,0 +1,149 @@
+{
+  "version": "2.0",
+  "name": "Utility + Generator Backup",
+  "components": [
+    {
+      "id": "m1",
+      "type": "utility-source",
+      "tag": "M1",
+      "x": 0,
+      "y": 5,
+      "rotation": 0,
+      "ports": [
+        { "id": "output", "label": "Output", "relativeX": 2.5, "relativeY": 0, "enabled": true, "direction": "out" }
+      ],
+      "properties": { "nominalVoltage": 480, "nominalFrequency": 60 },
+      "state": {
+        "closed": true, "energized": false, "failed": false, "tripped": false, "locked": false,
+        "voltagePercent": 100, "frequencyHz": 60, "phaseAngleDeg": 0
+      }
+    },
+    {
+      "id": "b52m1",
+      "type": "circuit-breaker",
+      "tag": "52-M1",
+      "x": 5,
+      "y": 5,
+      "rotation": 0,
+      "ports": [
+        { "id": "line", "label": "Line Side", "relativeX": -1.5, "relativeY": 0, "enabled": true, "direction": "bidirectional" },
+        { "id": "load", "label": "Load Side", "relativeX": 1.5, "relativeY": 0, "enabled": true, "direction": "bidirectional" }
+      ],
+      "properties": {},
+      "state": {
+        "closed": true, "energized": false, "failed": false, "tripped": false, "locked": false,
+        "voltagePercent": 0, "frequencyHz": 0, "phaseAngleDeg": 0
+      }
+    },
+    {
+      "id": "bus1",
+      "type": "bus-segment",
+      "tag": "BUS-1",
+      "x": 10,
+      "y": 5,
+      "rotation": 0,
+      "ports": [
+        { "id": "left", "label": "Left", "relativeX": -3, "relativeY": 0, "enabled": true, "direction": "bidirectional" },
+        { "id": "right", "label": "Right", "relativeX": 3, "relativeY": 0, "enabled": true, "direction": "bidirectional" },
+        { "id": "tap1", "label": "Tap 1", "relativeX": -1, "relativeY": 1.5, "enabled": true, "direction": "bidirectional" },
+        { "id": "tap2", "label": "Tap 2", "relativeX": 1, "relativeY": 1.5, "enabled": true, "direction": "bidirectional" }
+      ],
+      "properties": { "busLength": 6 },
+      "state": {
+        "closed": true, "energized": false, "failed": false, "tripped": false, "locked": false,
+        "voltagePercent": 0, "frequencyHz": 0, "phaseAngleDeg": 0
+      }
+    },
+    {
+      "id": "b52g",
+      "type": "circuit-breaker",
+      "tag": "52-G",
+      "x": 15,
+      "y": 5,
+      "rotation": 0,
+      "ports": [
+        { "id": "line", "label": "Line Side", "relativeX": -1.5, "relativeY": 0, "enabled": true, "direction": "bidirectional" },
+        { "id": "load", "label": "Load Side", "relativeX": 1.5, "relativeY": 0, "enabled": true, "direction": "bidirectional" }
+      ],
+      "properties": {},
+      "state": {
+        "closed": false, "energized": false, "failed": false, "tripped": false, "locked": false,
+        "voltagePercent": 0, "frequencyHz": 0, "phaseAngleDeg": 0
+      }
+    },
+    {
+      "id": "g1",
+      "type": "generator-source",
+      "tag": "G1",
+      "x": 19,
+      "y": 5,
+      "rotation": 180,
+      "ports": [
+        { "id": "output", "label": "Output", "relativeX": 2.5, "relativeY": 0, "enabled": true, "direction": "out" }
+      ],
+      "properties": { "nominalVoltage": 480, "nominalFrequency": 60, "startupTime": 10000, "rampRate": 10 },
+      "state": {
+        "closed": true, "energized": false, "failed": false, "tripped": false, "locked": false,
+        "voltagePercent": 100, "frequencyHz": 60, "phaseAngleDeg": 15
+      }
+    },
+    {
+      "id": "load_crit",
+      "type": "load",
+      "tag": "CRITICAL",
+      "x": 9,
+      "y": 9,
+      "rotation": 0,
+      "ports": [
+        { "id": "supply", "label": "Supply", "relativeX": 0, "relativeY": -1.5, "enabled": true, "direction": "in" }
+      ],
+      "properties": { "loadKW": 350 },
+      "state": {
+        "closed": true, "energized": false, "failed": false, "tripped": false, "locked": false,
+        "voltagePercent": 0, "frequencyHz": 0, "phaseAngleDeg": 0
+      }
+    },
+    {
+      "id": "load_hvac",
+      "type": "load",
+      "tag": "HVAC",
+      "x": 11,
+      "y": 9,
+      "rotation": 0,
+      "ports": [
+        { "id": "supply", "label": "Supply", "relativeX": 0, "relativeY": -1.5, "enabled": true, "direction": "in" }
+      ],
+      "properties": { "loadKW": 200 },
+      "state": {
+        "closed": true, "energized": false, "failed": false, "tripped": false, "locked": false,
+        "voltagePercent": 0, "frequencyHz": 0, "phaseAngleDeg": 0
+      }
+    }
+  ],
+  "wires": [
+    { "id": "w1", "fromComponentId": "m1", "fromPortId": "output", "toComponentId": "b52m1", "toPortId": "line" },
+    { "id": "w2", "fromComponentId": "b52m1", "fromPortId": "load", "toComponentId": "bus1", "toPortId": "left" },
+    { "id": "w3", "fromComponentId": "bus1", "fromPortId": "right", "toComponentId": "b52g", "toPortId": "line" },
+    { "id": "w4", "fromComponentId": "b52g", "fromPortId": "load", "toComponentId": "g1", "toPortId": "output" },
+    { "id": "w5", "fromComponentId": "bus1", "fromPortId": "tap1", "toComponentId": "load_crit", "toPortId": "supply" },
+    { "id": "w6", "fromComponentId": "bus1", "fromPortId": "tap2", "toComponentId": "load_hvac", "toPortId": "supply" }
+  ],
+  "schemeSettings": {
+    "transferMode": "open-transition",
+    "preferredSourceId": "m1",
+    "undervoltagePickup": 85,
+    "overvoltagePickup": 110,
+    "underfrequencyPickup": 57,
+    "overfrequencyPickup": 63,
+    "pickupDelay": 500,
+    "transferDelay": 100,
+    "retransferDelay": 10000,
+    "autoRetransfer": true,
+    "syncCheckDeltaV": 5,
+    "syncCheckDeltaF": 0.5,
+    "syncCheckDeltaPhi": 10,
+    "maxParallelTime": 100,
+    "lockoutAfterN": 3,
+    "lockoutWindow": 60000
+  }
+}

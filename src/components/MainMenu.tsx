@@ -7,6 +7,7 @@ import { COLORS } from '../core/constants';
 import twoSourceATS from '../presets/two-source-ats.json';
 import mainTieMain from '../presets/main-tie-main.json';
 import mainMainMain from '../presets/main-main-main.json';
+import utilityGeneratorBackup from '../presets/utility-generator-backup.json';
 
 interface MainMenuProps {
   onLoadCircuit: (model: CircuitModel, startInSimulator: boolean) => void;
@@ -38,6 +39,12 @@ const PRESETS: PresetEntry[] = [
     name: "Main–Main–Main",
     description: "Three sources, three bus sections, two tie breakers. Ring topology for maximum redundancy.",
     data: mainMainMain,
+  },
+  {
+    id: "utility-generator-backup",
+    name: "Utility + Generator Backup",
+    description: "Utility feeds critical and HVAC loads through 52-M1. A standby generator (G) sits behind 52-G, ready to pick up load on utility failure. Showcases the generator source symbol.",
+    data: utilityGeneratorBackup,
   },
 ];
 
