@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { CircuitModel, ComponentType, CircuitComponent } from '../../core/types';
 import { EditorToolbar } from './EditorToolbar';
 import { ComponentPalette } from './ComponentPalette';
-import { EditorCanvas } from './EditorCanvas';
+import { EditorCanvas, type EditorCanvasHandle } from './EditorCanvas';
 import { PropertiesPanel } from './PropertiesPanel';
 import { ConfirmModal } from '../shared/ConfirmModal';
 import { validateCircuit } from '../../core/Validator';
@@ -23,6 +23,7 @@ export function EditorView({ initialModel, onRunSimulation, onBack }: EditorView
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [placingType, setPlacingType] = useState<ComponentType | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const canvasRef = useRef<EditorCanvasHandle>(null);
 
   const model = history[historyIdx];
 
@@ -175,6 +176,8 @@ export function EditorView({ initialModel, onRunSimulation, onBack }: EditorView
         onRunSimulation={handleRunSimulation}
         onBack={onBack}
         onNameChange={(name) => handleModelChange({ ...model, name })}
+        onFit={() => canvasRef.current?.fitToContent()}
+        onResetView={() => canvasRef.current?.resetView()}
       />
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <ComponentPalette
@@ -182,6 +185,7 @@ export function EditorView({ initialModel, onRunSimulation, onBack }: EditorView
           onSelect={(type) => setPlacingType((t) => t === type ? null : type)}
         />
         <EditorCanvas
+          ref={canvasRef}
           model={model}
           selectedComponentId={selectedId}
           placingType={placingType}

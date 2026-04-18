@@ -3,22 +3,22 @@ export const GRID_SIZE = 40; // px per grid unit
 export const COLORS = {
   energized: "#22c55e",
   deenergized: "#6b7280",
-  failed: "#f59e0b",
+  failed: "#ef4444",
   tripped: "#ef4444",
-  locked: "#8b5cf6",
+  locked: "#f59e0b",
   selected: "#3b82f6",
   grid: "#1e293b",
   background: "#0f172a",
-  wire: "#94a3b8",
+  wire: "#6b7280",
   wireEnergized: "#22c55e",
   text: "#e2e8f0",
-  textDim: "#64748b",
+  textDim: "#94a3b8",
 };
 
 export const LINE_WEIGHTS = {
   wire: 2,
-  busBar: 5,
-  symbol: 1.5,
+  busBar: 4,
+  symbol: 2,
   selectedOutline: 2,
 };
 

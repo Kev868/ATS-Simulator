@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import type { CircuitModel, ComponentType, CircuitWire } from '../../core/types';
-import { CircuitRenderer } from '../shared/CircuitRenderer';
+import { CircuitRenderer, type Viewport } from '../shared/CircuitRenderer';
 import { COMPONENT_REGISTRY, createComponent } from '../../core/ComponentRegistry';
 import { COLORS, GRID_SIZE } from '../../core/constants';
 
@@ -8,6 +8,8 @@ let idCounter = 1;
 function genId(prefix: string): string {
   return `${prefix}-${Date.now()}-${idCounter++}`;
 }
+
+const DEFAULT_VIEWPORT: Viewport = { x: -100, y: -100, width: 1200, height: 800 };
 
 interface EditorCanvasProps {
   model: CircuitModel;
@@ -18,23 +20,40 @@ interface EditorCanvasProps {
   onPlacementDone: () => void;
 }
 
-function computeBounds(model: CircuitModel) {
-  if (model.components.length === 0) return { minX: -5, minY: -5, maxX: 20, maxY: 15 };
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const c of model.components) {
-    minX = Math.min(minX, c.x - 4);
-    minY = Math.min(minY, c.y - 4);
-    maxX = Math.max(maxX, c.x + 4);
-    maxY = Math.max(maxY, c.y + 4);
-  }
-  return { minX, minY, maxX, maxY };
+export interface EditorCanvasHandle {
+  fitToContent: () => void;
+  resetView: () => void;
 }
 
-export function EditorCanvas({
+export const EditorCanvas = forwardRef<EditorCanvasHandle, EditorCanvasProps>(function EditorCanvas({
   model, selectedComponentId, placingType, onModelChange, onSelectionChange, onPlacementDone,
-}: EditorCanvasProps) {
+}, ref) {
   const [wiringFrom, setWiringFrom] = useState<{ componentId: string; portId: string } | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
+
+  useImperativeHandle(ref, () => ({
+    fitToContent: () => {
+      if (model.components.length === 0) {
+        setViewport(DEFAULT_VIEWPORT);
+        return;
+      }
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const c of model.components) {
+        minX = Math.min(minX, c.x - 3);
+        minY = Math.min(minY, c.y - 3);
+        maxX = Math.max(maxX, c.x + 3);
+        maxY = Math.max(maxY, c.y + 3);
+      }
+      const padding = 2;
+      setViewport({
+        x: (minX - padding) * GRID_SIZE,
+        y: (minY - padding) * GRID_SIZE,
+        width: (maxX - minX + padding * 2) * GRID_SIZE,
+        height: (maxY - minY + padding * 2) * GRID_SIZE,
+      });
+    },
+    resetView: () => setViewport(DEFAULT_VIEWPORT),
+  }), [model.components]);
 
   const handleComponentClick = useCallback((componentId: string) => {
     if (!componentId) {
@@ -85,18 +104,8 @@ export function EditorCanvas({
     });
   }, [model, onModelChange]);
 
-  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleCanvasClick = useCallback((svgX: number, svgY: number) => {
     if (!placingType) return;
-    const div = containerRef.current;
-    if (!div) return;
-    const rect = div.getBoundingClientRect();
-    const bounds = computeBounds(model);
-    const viewW = (bounds.maxX - bounds.minX) * GRID_SIZE;
-    const viewH = (bounds.maxY - bounds.minY) * GRID_SIZE;
-    const scaleX = viewW / rect.width;
-    const scaleY = viewH / rect.height;
-    const svgX = (e.clientX - rect.left) * scaleX + bounds.minX * GRID_SIZE;
-    const svgY = (e.clientY - rect.top) * scaleY + bounds.minY * GRID_SIZE;
     const gx = Math.round(svgX / GRID_SIZE);
     const gy = Math.round(svgY / GRID_SIZE);
 
@@ -114,11 +123,7 @@ export function EditorCanvas({
   }, [placingType, model, onModelChange, onPlacementDone]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ flex: 1, position: 'relative', overflow: 'hidden', cursor: placingType ? 'crosshair' : 'default' }}
-      onClick={handleCanvasClick}
-    >
+    <div style={{ flex: 1, position: 'relative', overflow: 'hidden', cursor: placingType ? 'crosshair' : 'default' }}>
       {placingType && (
         <div style={{
           position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
@@ -139,6 +144,14 @@ export function EditorCanvas({
           Wiring from port '{wiringFrom.portId}' — click another port to connect · ESC to cancel
         </div>
       )}
+      <div style={{
+        position: 'absolute', bottom: 8, right: 8, zIndex: 10,
+        fontSize: 11, color: COLORS.textDim, fontFamily: 'monospace',
+        pointerEvents: 'none',
+        background: 'rgba(15,23,42,0.7)', padding: '2px 6px', borderRadius: 3,
+      }}>
+        Scroll: zoom · Space+drag or middle-drag: pan
+      </div>
       <CircuitRenderer
         model={model}
         mode="edit"
@@ -146,8 +159,11 @@ export function EditorCanvas({
         onComponentClick={handleComponentClick}
         onComponentDrag={handleComponentDrag}
         onPortClick={handlePortClick}
+        onCanvasClick={handleCanvasClick}
         showGrid={true}
+        viewport={viewport}
+        onViewportChange={setViewport}
       />
     </div>
   );
-}
+});

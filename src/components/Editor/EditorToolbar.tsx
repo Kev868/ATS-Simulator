@@ -16,6 +16,8 @@ interface EditorToolbarProps {
   onRunSimulation: () => void;
   onBack: () => void;
   onNameChange: (name: string) => void;
+  onFit: () => void;
+  onResetView: () => void;
 }
 
 function Btn({ label, onClick, disabled, color }: { label: string; onClick: () => void; disabled?: boolean; color?: string }) {
@@ -43,6 +45,7 @@ function Btn({ label, onClick, disabled, color }: { label: string; onClick: () =
 export function EditorToolbar({
   circuitName, canUndo, canRedo, hasSelection,
   onUndo, onRedo, onDelete, onRotate, onSave, onLoad, onNew, onRunSimulation, onBack, onNameChange,
+  onFit, onResetView,
 }: EditorToolbarProps) {
   return (
     <div style={{
@@ -83,6 +86,9 @@ export function EditorToolbar({
       <div style={{ width: 1, height: 24, background: '#1e293b' }} />
       <Btn label="Rotate" onClick={onRotate} disabled={!hasSelection} />
       <Btn label="Delete" onClick={onDelete} disabled={!hasSelection} />
+      <div style={{ width: 1, height: 24, background: '#1e293b' }} />
+      <Btn label="Fit" onClick={onFit} />
+      <Btn label="Reset View" onClick={onResetView} />
       <div style={{ flex: 1 }} />
       <Btn label="▶ Run Simulation" onClick={onRunSimulation} color="#16a34a" />
     </div>
