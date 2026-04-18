@@ -1,0 +1,133 @@
+{
+  "id": "test-two-source",
+  "name": "Test Two-Source ATS",
+  "gridPx": 20,
+  "canvasW": 28,
+  "canvasH": 20,
+  "components": [
+    {
+      "id": "M1",
+      "type": "SOURCE",
+      "role": "PREFERRED_SOURCE",
+      "tag": "M1",
+      "ansiNumber": "",
+      "x": 3,
+      "y": 8,
+      "rotation": 0,
+      "ports": [
+        { "id": "out", "label": "Out", "enabled": true, "dx": 1, "dy": 0, "connectedWireIds": ["w1"] }
+      ],
+      "props": { "sourceType": "UTILITY", "nominalVoltage": 13.8, "nominalFrequency": 60, "voltage": 100, "frequency": 60, "phaseAngle": 0, "available": true }
+    },
+    {
+      "id": "52-M1",
+      "type": "BREAKER",
+      "role": "SOURCE_BREAKER",
+      "tag": "52-M1",
+      "ansiNumber": "52",
+      "x": 7,
+      "y": 8,
+      "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "L", "enabled": true, "dx": -1, "dy": 0, "connectedWireIds": ["w1"] },
+        { "id": "right", "label": "R", "enabled": true, "dx":  1, "dy": 0, "connectedWireIds": ["w2"] }
+      ],
+      "props": { "breakerState": "CLOSED", "operationTimeMs": 50, "lockedOut": false, "elapsed": 0 }
+    },
+    {
+      "id": "BUS1",
+      "type": "BUS",
+      "role": "MAIN_BUS",
+      "tag": "BUS-1",
+      "ansiNumber": "",
+      "x": 12,
+      "y": 8,
+      "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "L",  "enabled": true,  "dx": -2, "dy":  0, "connectedWireIds": ["w2"] },
+        { "id": "right", "label": "R",  "enabled": true,  "dx":  2, "dy":  0, "connectedWireIds": ["w3"] },
+        { "id": "bot1",  "label": "B1", "enabled": true,  "dx": -1, "dy":  2, "connectedWireIds": ["w5"] },
+        { "id": "bot2",  "label": "B2", "enabled": false, "dx":  1, "dy":  2, "connectedWireIds": [] }
+      ],
+      "props": {}
+    },
+    {
+      "id": "52-M2",
+      "type": "BREAKER",
+      "role": "SOURCE_BREAKER",
+      "tag": "52-M2",
+      "ansiNumber": "52",
+      "x": 17,
+      "y": 8,
+      "rotation": 0,
+      "ports": [
+        { "id": "left",  "label": "L", "enabled": true, "dx": -1, "dy": 0, "connectedWireIds": ["w3"] },
+        { "id": "right", "label": "R", "enabled": true, "dx":  1, "dy": 0, "connectedWireIds": ["w4"] }
+      ],
+      "props": { "breakerState": "OPEN", "operationTimeMs": 50, "lockedOut": false, "elapsed": 0 }
+    },
+    {
+      "id": "M2",
+      "type": "SOURCE",
+      "role": "ALTERNATE_SOURCE",
+      "tag": "M2",
+      "ansiNumber": "",
+      "x": 21,
+      "y": 8,
+      "rotation": 0,
+      "ports": [
+        { "id": "out", "label": "Out", "enabled": true, "dx": 1, "dy": 0, "connectedWireIds": ["w4"] }
+      ],
+      "props": { "sourceType": "UTILITY", "nominalVoltage": 13.8, "nominalFrequency": 60, "voltage": 100, "frequency": 60, "phaseAngle": 0, "available": true }
+    },
+    {
+      "id": "LOAD1",
+      "type": "LOAD",
+      "role": "AGGREGATE_LOAD",
+      "tag": "LOAD-1",
+      "ansiNumber": "",
+      "x": 11,
+      "y": 13,
+      "rotation": 0,
+      "ports": [
+        { "id": "top", "label": "In", "enabled": true, "dx": 0, "dy": -1, "connectedWireIds": ["w5"] }
+      ],
+      "props": { "loadKW": 500 }
+    }
+  ],
+  "wires": [
+    {
+      "id": "w1",
+      "fromCompId": "M1",    "fromPortId": "out",
+      "toCompId":   "52-M1", "toPortId":   "left",
+      "segments": [{ "x1": 4, "y1": 8, "x2": 6, "y2": 8 }]
+    },
+    {
+      "id": "w2",
+      "fromCompId": "52-M1", "fromPortId": "right",
+      "toCompId":   "BUS1",  "toPortId":   "left",
+      "segments": [{ "x1": 8, "y1": 8, "x2": 10, "y2": 8 }]
+    },
+    {
+      "id": "w3",
+      "fromCompId": "BUS1",  "fromPortId": "right",
+      "toCompId":   "52-M2", "toPortId":   "left",
+      "segments": [{ "x1": 14, "y1": 8, "x2": 16, "y2": 8 }]
+    },
+    {
+      "id": "w4",
+      "fromCompId": "52-M2", "fromPortId": "right",
+      "toCompId":   "M2",    "toPortId":   "out",
+      "segments": [{ "x1": 18, "y1": 8, "x2": 22, "y2": 8 }]
+    },
+    {
+      "id": "w5",
+      "fromCompId": "BUS1",  "fromPortId": "bot1",
+      "toCompId":   "LOAD1", "toPortId":   "top",
+      "segments": [
+        { "x1": 11, "y1": 10, "x2": 11, "y2": 10 },
+        { "x1": 11, "y1": 10, "x2": 11, "y2": 12 }
+      ]
+    }
+  ]
+}

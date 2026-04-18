@@ -1,0 +1,34 @@
+{
+  "version": "2.0",
+  "name": "Invalid Wire Test",
+  "components": [
+    {
+      "id": "s1", "type": "utility-source", "tag": "SRC-1", "x": 0, "y": 5, "rotation": 0,
+      "ports": [{ "id": "output", "label": "Output", "relativeX": 2.5, "relativeY": 0, "enabled": true, "direction": "out" }],
+      "properties": { "nominalVoltage": 480, "nominalFrequency": 60 },
+      "state": { "closed": true, "energized": false, "failed": false, "tripped": false, "locked": false, "voltagePercent": 100, "frequencyHz": 60, "phaseAngleDeg": 0 }
+    },
+    {
+      "id": "b1", "type": "circuit-breaker", "tag": "52-1", "x": 4, "y": 5, "rotation": 0,
+      "ports": [
+        { "id": "line", "label": "Line", "relativeX": -1.5, "relativeY": 0, "enabled": true, "direction": "bidirectional" },
+        { "id": "load", "label": "Load", "relativeX": 1.5, "relativeY": 0, "enabled": true, "direction": "bidirectional" }
+      ],
+      "properties": {},
+      "state": { "closed": true, "energized": false, "failed": false, "tripped": false, "locked": false, "voltagePercent": 0, "frequencyHz": 0, "phaseAngleDeg": 0 }
+    }
+  ],
+  "wires": [
+    { "id": "w1", "fromComponentId": "s1", "fromPortId": "output", "toComponentId": "b1", "toPortId": "nonexistent" }
+  ],
+  "schemeSettings": {
+    "transferMode": "open-transition",
+    "preferredSourceId": "s1",
+    "undervoltagePickup": 85, "overvoltagePickup": 110,
+    "underfrequencyPickup": 57, "overfrequencyPickup": 63,
+    "pickupDelay": 500, "transferDelay": 100, "retransferDelay": 10000,
+    "autoRetransfer": true,
+    "syncCheckDeltaV": 5, "syncCheckDeltaF": 0.5, "syncCheckDeltaPhi": 10,
+    "maxParallelTime": 100, "lockoutAfterN": 3, "lockoutWindow": 60000
+  }
+}
