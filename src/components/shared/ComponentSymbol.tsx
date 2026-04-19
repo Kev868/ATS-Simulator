@@ -20,58 +20,38 @@ function getComponentColor(comp: CircuitComponent): string {
 
 const LABEL_FONT = { fontFamily: 'monospace', fontSize: GRID_SIZE * 0.38 };
 
-function UtilitySourceSymbol({ comp }: { comp: CircuitComponent }) {
+// --- Geometry-only symbol functions (get rotated) ---
+
+function UtilitySourceGeometry({ comp }: { comp: CircuitComponent }) {
   const color = getComponentColor(comp);
   const r = GRID_SIZE * 0.9;
   const portX = 2.5 * GRID_SIZE;
   return (
     <g>
       <circle cx={0} cy={0} r={r} stroke={color} strokeWidth={LINE_WEIGHTS.symbol} fill="none" />
-      {/* Sine wave (~) inside */}
       <path
         d={`M ${-r * 0.55} 0 Q ${-r * 0.275} ${-r * 0.45} 0 0 T ${r * 0.55} 0`}
         stroke={color} strokeWidth={LINE_WEIGHTS.symbol} fill="none"
       />
-      {/* Output stub */}
       <line x1={r} y1={0} x2={portX} y2={0} stroke={color} strokeWidth={LINE_WEIGHTS.wire} />
-      {/* Tag above */}
-      <text x={0} y={-r - GRID_SIZE * 0.35} textAnchor="middle" {...LABEL_FONT} fill={COLORS.text}>
-        {comp.tag}
-      </text>
-      {/* Device label below */}
-      <text x={0} y={r + GRID_SIZE * 0.55} textAnchor="middle" {...LABEL_FONT} fill={COLORS.textDim}>
-        UTIL
-      </text>
     </g>
   );
 }
 
-function GeneratorSourceSymbol({ comp }: { comp: CircuitComponent }) {
+function GeneratorSourceGeometry({ comp }: { comp: CircuitComponent }) {
   const color = getComponentColor(comp);
   const r = GRID_SIZE * 0.9;
   const portX = 2.5 * GRID_SIZE;
   return (
     <g>
-      {/* Double circle for differentiation */}
       <circle cx={0} cy={0} r={r} stroke={color} strokeWidth={LINE_WEIGHTS.symbol} fill="none" />
       <circle cx={0} cy={0} r={r - 4} stroke={color} strokeWidth={LINE_WEIGHTS.symbol} fill="none" opacity={0.55} />
-      {/* G label inside */}
-      <text x={0} y={GRID_SIZE * 0.18} textAnchor="middle" fontFamily="monospace" fontSize={GRID_SIZE * 0.55} fontWeight="bold" fill={color}>
-        G
-      </text>
-      {/* Output stub */}
       <line x1={r} y1={0} x2={portX} y2={0} stroke={color} strokeWidth={LINE_WEIGHTS.wire} />
-      <text x={0} y={-r - GRID_SIZE * 0.35} textAnchor="middle" {...LABEL_FONT} fill={COLORS.text}>
-        {comp.tag}
-      </text>
-      <text x={0} y={r + GRID_SIZE * 0.55} textAnchor="middle" {...LABEL_FONT} fill={COLORS.textDim}>
-        GEN
-      </text>
     </g>
   );
 }
 
-function CircuitBreakerSymbol({ comp }: { comp: CircuitComponent }) {
+function CircuitBreakerGeometry({ comp }: { comp: CircuitComponent }) {
   const color = getComponentColor(comp);
   const s = GRID_SIZE * 0.5;
   const linePortX = -1.5 * GRID_SIZE;
@@ -79,117 +59,127 @@ function CircuitBreakerSymbol({ comp }: { comp: CircuitComponent }) {
   const isClosed = comp.state.closed && !comp.state.tripped && !comp.state.locked;
   return (
     <g>
-      {/* Line-side stub */}
       <line x1={linePortX} y1={0} x2={-s} y2={0} stroke={color} strokeWidth={LINE_WEIGHTS.wire} />
-      {/* Load-side stub */}
       <line x1={s} y1={0} x2={loadPortX} y2={0} stroke={color} strokeWidth={LINE_WEIGHTS.wire} />
-      {/* Square body */}
       {isClosed ? (
         <rect x={-s} y={-s} width={s * 2} height={s * 2} fill={color} stroke={color} strokeWidth={LINE_WEIGHTS.symbol} />
       ) : (
         <>
           <rect x={-s} y={-s} width={s * 2} height={s * 2} fill="none" stroke={color} strokeWidth={LINE_WEIGHTS.symbol} />
-          {/* Diagonal slash from bottom-left to top-right */}
           <line x1={-s} y1={s} x2={s} y2={-s} stroke={color} strokeWidth={LINE_WEIGHTS.symbol} />
         </>
       )}
-      {/* Trip/lock overlay */}
       {(comp.state.tripped || comp.state.locked) && (
         <>
           <line x1={-s * 0.6} y1={-s * 0.6} x2={s * 0.6} y2={s * 0.6} stroke={COLORS.background} strokeWidth={LINE_WEIGHTS.symbol} />
           <line x1={-s * 0.6} y1={s * 0.6} x2={s * 0.6} y2={-s * 0.6} stroke={COLORS.background} strokeWidth={LINE_WEIGHTS.symbol} />
         </>
       )}
-      {/* Tag above */}
-      <text x={0} y={-s - GRID_SIZE * 0.35} textAnchor="middle" {...LABEL_FONT} fill={COLORS.text}>
-        {comp.tag}
-      </text>
-      {/* ANSI device number below */}
-      <text x={0} y={s + GRID_SIZE * 0.55} textAnchor="middle" {...LABEL_FONT} fill={COLORS.textDim}>
-        52
-      </text>
     </g>
   );
 }
 
-function BusSegmentSymbol({ comp }: { comp: CircuitComponent }) {
+function BusSegmentGeometry({ comp }: { comp: CircuitComponent }) {
   const color = getComponentColor(comp);
   const busLen = (comp.properties.busLength ?? 6) * GRID_SIZE;
   const halfLen = busLen / 2;
-  // Tap ports: relativeX -1 and +1, relativeY +1.5 (below bus)
   const tap1X = -1 * GRID_SIZE;
   const tap2X = 1 * GRID_SIZE;
   const tapY = 1.5 * GRID_SIZE;
   return (
     <g>
-      {/* Main bus bar */}
       <line
         x1={-halfLen} y1={0} x2={halfLen} y2={0}
         stroke={color} strokeWidth={LINE_WEIGHTS.busBar} strokeLinecap="square"
       />
-      {/* Tap stubs extending down to port positions */}
       <line x1={tap1X} y1={0} x2={tap1X} y2={tapY} stroke={color} strokeWidth={LINE_WEIGHTS.wire} />
       <line x1={tap2X} y1={0} x2={tap2X} y2={tapY} stroke={color} strokeWidth={LINE_WEIGHTS.wire} />
-      {/* Tag above, centered */}
-      <text x={0} y={-GRID_SIZE * 0.3} textAnchor="middle" {...LABEL_FONT} fill={COLORS.text}>
-        {comp.tag}
-      </text>
     </g>
   );
 }
 
-function LoadSymbol({ comp }: { comp: CircuitComponent }) {
+function LoadGeometry({ comp }: { comp: CircuitComponent }) {
   const color = getComponentColor(comp);
   const w = GRID_SIZE * 1.4;
   const h = GRID_SIZE * 0.9;
   const portY = -1.5 * GRID_SIZE;
-  // Rectangle centered at origin
   const rectTop = -h / 2;
   const rectBot = h / 2;
   return (
     <g>
-      {/* Supply port stub from rectangle top up to port */}
       <line x1={0} y1={rectTop} x2={0} y2={portY} stroke={color} strokeWidth={LINE_WEIGHTS.wire} />
-      {/* Load rectangle */}
       <rect x={-w / 2} y={rectTop} width={w} height={h} fill={color} fillOpacity={0.18} stroke={color} strokeWidth={LINE_WEIGHTS.symbol} />
-      <text x={0} y={2} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={GRID_SIZE * 0.38} fill={color}>
-        {comp.properties.loadKW ?? '?'}kW
-      </text>
-      {/* Ground bar: three horizontal lines of decreasing width below rectangle */}
       <line x1={-GRID_SIZE * 0.35} y1={rectBot + GRID_SIZE * 0.22} x2={GRID_SIZE * 0.35} y2={rectBot + GRID_SIZE * 0.22} stroke={COLORS.deenergized} strokeWidth={LINE_WEIGHTS.symbol} />
       <line x1={-GRID_SIZE * 0.22} y1={rectBot + GRID_SIZE * 0.38} x2={GRID_SIZE * 0.22} y2={rectBot + GRID_SIZE * 0.38} stroke={COLORS.deenergized} strokeWidth={LINE_WEIGHTS.symbol} />
       <line x1={-GRID_SIZE * 0.1} y1={rectBot + GRID_SIZE * 0.54} x2={GRID_SIZE * 0.1} y2={rectBot + GRID_SIZE * 0.54} stroke={COLORS.deenergized} strokeWidth={LINE_WEIGHTS.symbol} />
-      {/* Tag above */}
-      <text x={0} y={portY - GRID_SIZE * 0.2} textAnchor="middle" {...LABEL_FONT} fill={COLORS.text}>
-        {comp.tag}
-      </text>
     </g>
   );
 }
 
-function GroundSymbol({ comp }: { comp: CircuitComponent }) {
+function GroundGeometry() {
   const color = COLORS.deenergized;
   const portY = -1 * GRID_SIZE;
   return (
     <g>
-      {/* Stub from origin up to port */}
       <line x1={0} y1={portY} x2={0} y2={0} stroke={color} strokeWidth={LINE_WEIGHTS.wire} />
-      {/* Three horizontal lines of decreasing width */}
       <line x1={-GRID_SIZE * 0.4} y1={0} x2={GRID_SIZE * 0.4} y2={0} stroke={color} strokeWidth={LINE_WEIGHTS.symbol} />
       <line x1={-GRID_SIZE * 0.25} y1={GRID_SIZE * 0.18} x2={GRID_SIZE * 0.25} y2={GRID_SIZE * 0.18} stroke={color} strokeWidth={LINE_WEIGHTS.symbol} />
       <line x1={-GRID_SIZE * 0.1} y1={GRID_SIZE * 0.36} x2={GRID_SIZE * 0.1} y2={GRID_SIZE * 0.36} stroke={color} strokeWidth={LINE_WEIGHTS.symbol} />
-      {comp.tag && (
-        <text x={GRID_SIZE * 0.55} y={GRID_SIZE * 0.15} {...LABEL_FONT} fill={COLORS.textDim}>
-          {comp.tag}
-        </text>
-      )}
     </g>
   );
 }
 
-function JunctionSymbol({ comp }: { comp: CircuitComponent }) {
+function JunctionGeometry({ comp }: { comp: CircuitComponent }) {
   const color = comp.state.energized ? COLORS.energized : COLORS.deenergized;
   return <circle cx={0} cy={0} r={LINE_WEIGHTS.wire * 1.2} fill={color} />;
+}
+
+// --- Labels (always horizontal, never rotated, at fixed offsets from component center) ---
+
+function ComponentLabels({ comp }: { comp: CircuitComponent }) {
+  switch (comp.type) {
+    case 'utility-source':
+      return (
+        <g>
+          <text x={0} y={-GRID_SIZE * 1.25} textAnchor="middle" {...LABEL_FONT} fill={COLORS.text}>{comp.tag}</text>
+          <text x={0} y={GRID_SIZE * 1.45} textAnchor="middle" {...LABEL_FONT} fill={COLORS.textDim}>UTIL</text>
+        </g>
+      );
+    case 'generator-source':
+      return (
+        <g>
+          <text x={0} y={GRID_SIZE * 0.18} textAnchor="middle" fontFamily="monospace" fontSize={GRID_SIZE * 0.55} fontWeight="bold" fill={getComponentColor(comp)}>G</text>
+          <text x={0} y={-GRID_SIZE * 1.25} textAnchor="middle" {...LABEL_FONT} fill={COLORS.text}>{comp.tag}</text>
+          <text x={0} y={GRID_SIZE * 1.45} textAnchor="middle" {...LABEL_FONT} fill={COLORS.textDim}>GEN</text>
+        </g>
+      );
+    case 'circuit-breaker':
+      return (
+        <g>
+          <text x={0} y={-GRID_SIZE * 0.85} textAnchor="middle" {...LABEL_FONT} fill={COLORS.text}>{comp.tag}</text>
+          <text x={0} y={GRID_SIZE * 1.05} textAnchor="middle" {...LABEL_FONT} fill={COLORS.textDim}>52</text>
+        </g>
+      );
+    case 'bus-segment':
+      return (
+        <text x={0} y={-GRID_SIZE * 0.35} textAnchor="middle" {...LABEL_FONT} fill={COLORS.text}>{comp.tag}</text>
+      );
+    case 'load':
+      return (
+        <g>
+          <text x={0} y={-GRID_SIZE * 1.7} textAnchor="middle" {...LABEL_FONT} fill={COLORS.text}>{comp.tag}</text>
+          <text x={0} y={2} textAnchor="middle" dominantBaseline="middle" fontFamily="monospace" fontSize={GRID_SIZE * 0.38} fill={getComponentColor(comp)}>
+            {comp.properties.loadKW ?? '?'}kW
+          </text>
+        </g>
+      );
+    case 'ground':
+      return comp.tag ? (
+        <text x={GRID_SIZE * 0.55} y={GRID_SIZE * 0.15} {...LABEL_FONT} fill={COLORS.textDim}>{comp.tag}</text>
+      ) : null;
+    case 'junction':
+      return null;
+  }
 }
 
 function getSymbolBounds(comp: CircuitComponent): { x: number; y: number; w: number; h: number } {
@@ -197,20 +187,20 @@ function getSymbolBounds(comp: CircuitComponent): { x: number; y: number; w: num
     case 'utility-source':
     case 'generator-source': {
       const r = GRID_SIZE * 0.9;
-      return { x: -r - 4, y: -r - GRID_SIZE * 0.6, w: r * 2 + 8, h: r * 2 + GRID_SIZE * 1.1 };
+      return { x: -r - 4, y: -r - 4, w: r * 2 + 8, h: r * 2 + 8 };
     }
     case 'circuit-breaker': {
       const s = GRID_SIZE * 0.5;
-      return { x: -s - 4, y: -s - GRID_SIZE * 0.55, w: s * 2 + 8, h: s * 2 + GRID_SIZE * 1.1 };
+      return { x: -s - 4, y: -s - 4, w: s * 2 + 8, h: s * 2 + 8 };
     }
     case 'bus-segment': {
       const busLen = (comp.properties.busLength ?? 6) * GRID_SIZE;
-      return { x: -busLen / 2 - 4, y: -GRID_SIZE * 0.6, w: busLen + 8, h: GRID_SIZE * 1.0 };
+      return { x: -busLen / 2 - 4, y: -GRID_SIZE * 0.3, w: busLen + 8, h: GRID_SIZE * 2.0 };
     }
     case 'load': {
       const w = GRID_SIZE * 1.4;
       const h = GRID_SIZE * 0.9;
-      return { x: -w / 2 - 4, y: -GRID_SIZE * 1.7, w: w + 8, h: h + GRID_SIZE * 2.3 };
+      return { x: -w / 2 - 4, y: -GRID_SIZE * 1.6, w: w + 8, h: h + GRID_SIZE * 2.4 };
     }
     case 'ground':
       return { x: -GRID_SIZE * 0.5, y: -GRID_SIZE * 1.1, w: GRID_SIZE, h: GRID_SIZE * 1.6 };
@@ -224,30 +214,36 @@ export function ComponentSymbol({ component, selected, showPorts, onPortClick }:
   const cy = component.y * GRID_SIZE;
   const rotDeg = component.rotation;
 
-  let symbol: ReactNode;
+  let geometry: ReactNode;
   switch (component.type) {
-    case 'utility-source':    symbol = <UtilitySourceSymbol comp={component} />; break;
-    case 'generator-source':  symbol = <GeneratorSourceSymbol comp={component} />; break;
-    case 'circuit-breaker':   symbol = <CircuitBreakerSymbol comp={component} />; break;
-    case 'bus-segment':       symbol = <BusSegmentSymbol comp={component} />; break;
-    case 'load':              symbol = <LoadSymbol comp={component} />; break;
-    case 'ground':            symbol = <GroundSymbol comp={component} />; break;
-    case 'junction':          symbol = <JunctionSymbol comp={component} />; break;
+    case 'utility-source':    geometry = <UtilitySourceGeometry comp={component} />; break;
+    case 'generator-source':  geometry = <GeneratorSourceGeometry comp={component} />; break;
+    case 'circuit-breaker':   geometry = <CircuitBreakerGeometry comp={component} />; break;
+    case 'bus-segment':       geometry = <BusSegmentGeometry comp={component} />; break;
+    case 'load':              geometry = <LoadGeometry comp={component} />; break;
+    case 'ground':            geometry = <GroundGeometry />; break;
+    case 'junction':          geometry = <JunctionGeometry comp={component} />; break;
   }
 
   const resolvedPorts = resolveAllPorts(component);
   const bounds = getSymbolBounds(component);
 
   return (
-    <g transform={`translate(${cx},${cy}) rotate(${rotDeg})`}>
-      {selected && (
-        <rect
-          x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h}
-          fill="none" stroke={COLORS.selected} strokeWidth={2}
-          strokeDasharray="4 3" opacity={0.8}
-        />
-      )}
-      {symbol}
+    <g transform={`translate(${cx},${cy})`}>
+      {/* Rotated geometry + selection rect */}
+      <g transform={`rotate(${rotDeg})`}>
+        {selected && (
+          <rect
+            x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h}
+            fill="none" stroke={COLORS.selected} strokeWidth={2}
+            strokeDasharray="4 3" opacity={0.8}
+          />
+        )}
+        {geometry}
+      </g>
+      {/* Labels — always horizontal, never rotated */}
+      <ComponentLabels comp={component} />
+      {/* Port indicators — positioned from already-rotated port offsets */}
       {showPorts && Array.from(resolvedPorts.values()).map((rp) => {
         const px = (rp.absoluteX - component.x) * GRID_SIZE;
         const py = (rp.absoluteY - component.y) * GRID_SIZE;
