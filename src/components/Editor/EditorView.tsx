@@ -21,6 +21,7 @@ export function EditorView({ initialModel, onRunSimulation, onBack }: EditorView
   const [history, setHistory] = useState<CircuitModel[]>([cloneCircuit(initialModel)]);
   const [historyIdx, setHistoryIdx] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
   const [placingType, setPlacingType] = useState<ComponentType | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const canvasRef = useRef<EditorCanvasHandle>(null);
@@ -50,6 +51,15 @@ export function EditorView({ initialModel, onRunSimulation, onBack }: EditorView
   }, [history.length]);
 
   const handleDelete = useCallback(() => {
+    if (selectedWireId) {
+      const newModel = {
+        ...model,
+        wires: model.wires.filter((w) => w.id !== selectedWireId),
+      };
+      pushHistory(newModel);
+      setSelectedWireId(null);
+      return;
+    }
     if (!selectedId) return;
     const newModel = {
       ...model,
@@ -60,7 +70,7 @@ export function EditorView({ initialModel, onRunSimulation, onBack }: EditorView
     };
     pushHistory(newModel);
     setSelectedId(null);
-  }, [selectedId, model, pushHistory]);
+  }, [selectedId, selectedWireId, model, pushHistory]);
 
   const handleRotate = useCallback(() => {
     if (!selectedId) return;
@@ -150,12 +160,12 @@ export function EditorView({ initialModel, onRunSimulation, onBack }: EditorView
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setPlacingType(null);
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedId && document.activeElement?.tagName !== 'INPUT') handleDelete();
+        if ((selectedId || selectedWireId) && document.activeElement?.tagName !== 'INPUT') handleDelete();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedId, handleDelete]);
+  }, [selectedId, selectedWireId, handleDelete]);
 
   const selectedComponent = model.components.find((c) => c.id === selectedId) ?? null;
 
@@ -165,7 +175,7 @@ export function EditorView({ initialModel, onRunSimulation, onBack }: EditorView
         circuitName={model.name}
         canUndo={historyIdx > 0}
         canRedo={historyIdx < history.length - 1}
-        hasSelection={selectedId !== null}
+        hasSelection={selectedId !== null || selectedWireId !== null}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onDelete={handleDelete}
@@ -188,9 +198,11 @@ export function EditorView({ initialModel, onRunSimulation, onBack }: EditorView
           ref={canvasRef}
           model={model}
           selectedComponentId={selectedId}
+          selectedWireId={selectedWireId}
           placingType={placingType}
           onModelChange={handleModelChange}
-          onSelectionChange={setSelectedId}
+          onSelectionChange={(id) => { setSelectedId(id); if (id) setSelectedWireId(null); }}
+          onWireSelectionChange={(id) => { setSelectedWireId(id); if (id) setSelectedId(null); }}
           onPlacementDone={() => setPlacingType(null)}
         />
         <PropertiesPanel

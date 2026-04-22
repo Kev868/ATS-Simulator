@@ -3,11 +3,79 @@ import type { CircuitComponent } from '../../core/types';
 import { COLORS, GRID_SIZE, LINE_WEIGHTS } from '../../core/constants';
 import { resolveAllPorts } from '../../core/PortResolver';
 
+export type PortVisualState = 'idle' | 'hover' | 'source' | 'valid-target' | 'invalid-target';
+
 interface ComponentSymbolProps {
   component: CircuitComponent;
   selected?: boolean;
   showPorts?: boolean;
+  portStates?: Map<string, PortVisualState>;
   onPortClick?: (portId: string) => void;
+  onPortMouseEnter?: (portId: string) => void;
+  onPortMouseLeave?: (portId: string) => void;
+}
+
+interface PortIndicatorProps {
+  cx: number;
+  cy: number;
+  portId: string;
+  state: PortVisualState;
+  onClick?: (portId: string) => void;
+  onMouseEnter?: (portId: string) => void;
+  onMouseLeave?: (portId: string) => void;
+}
+
+function PortIndicator({ cx, cy, portId, state, onClick, onMouseEnter, onMouseLeave }: PortIndicatorProps) {
+  const visuals = (() => {
+    switch (state) {
+      case 'source':
+        return { r: 7, fill: '#3b82f6', stroke: 'white', strokeW: 1.5, ring: { r: 12, color: 'rgba(59,130,246,0.5)', animate: true } };
+      case 'valid-target':
+        return { r: 7, fill: '#22c55e', stroke: 'white', strokeW: 1.5, ring: { r: 13, color: 'rgba(34,197,94,0.35)', animate: false } };
+      case 'invalid-target':
+        return { r: 5, fill: '#ef4444', stroke: 'white', strokeW: 1, ring: null };
+      case 'hover':
+        return { r: 6, fill: '#3b82f6', stroke: 'white', strokeW: 1, ring: null };
+      case 'idle':
+      default:
+        return { r: 4, fill: 'rgba(59,130,246,0.55)', stroke: 'none', strokeW: 0, ring: null };
+    }
+  })();
+
+  return (
+    <g>
+      {visuals.ring && (
+        <circle cx={cx} cy={cy} r={visuals.ring.r} fill="none" stroke={visuals.ring.color} strokeWidth={2} pointerEvents="none">
+          {visuals.ring.animate && (
+            <>
+              <animate attributeName="r" values={`${visuals.ring.r - 4};${visuals.ring.r + 2};${visuals.ring.r - 4}`} dur="1.2s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.7;0.15;0.7" dur="1.2s" repeatCount="indefinite" />
+            </>
+          )}
+        </circle>
+      )}
+      <circle
+        cx={cx} cy={cy} r={visuals.r}
+        fill={visuals.fill}
+        stroke={visuals.stroke}
+        strokeWidth={visuals.strokeW}
+        pointerEvents="none"
+      />
+      {/* Invisible larger hit area for easier hover/click */}
+      <circle
+        cx={cx} cy={cy} r={10}
+        fill="transparent"
+        style={{ cursor: 'crosshair' }}
+        onMouseEnter={() => onMouseEnter?.(portId)}
+        onMouseLeave={() => onMouseLeave?.(portId)}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          e.stopPropagation();
+          onClick?.(portId);
+        }}
+      />
+    </g>
+  );
 }
 
 function getComponentColor(comp: CircuitComponent): string {
@@ -209,7 +277,10 @@ function getSymbolBounds(comp: CircuitComponent): { x: number; y: number; w: num
   }
 }
 
-export function ComponentSymbol({ component, selected, showPorts, onPortClick }: ComponentSymbolProps) {
+export function ComponentSymbol({
+  component, selected, showPorts, portStates,
+  onPortClick, onPortMouseEnter, onPortMouseLeave,
+}: ComponentSymbolProps) {
   const cx = component.x * GRID_SIZE;
   const cy = component.y * GRID_SIZE;
   const rotDeg = component.rotation;
@@ -247,14 +318,16 @@ export function ComponentSymbol({ component, selected, showPorts, onPortClick }:
       {showPorts && Array.from(resolvedPorts.values()).map((rp) => {
         const px = (rp.absoluteX - component.x) * GRID_SIZE;
         const py = (rp.absoluteY - component.y) * GRID_SIZE;
+        const state: PortVisualState = portStates?.get(rp.portId) ?? 'idle';
         return (
-          <circle
+          <PortIndicator
             key={rp.portId}
             cx={px} cy={py}
-            r={GRID_SIZE * 0.15}
-            fill={COLORS.selected} stroke="white" strokeWidth={1}
-            style={{ cursor: 'pointer' }}
-            onClick={(e) => { e.stopPropagation(); onPortClick?.(rp.portId); }}
+            portId={rp.portId}
+            state={state}
+            onClick={onPortClick}
+            onMouseEnter={onPortMouseEnter}
+            onMouseLeave={onPortMouseLeave}
           />
         );
       })}

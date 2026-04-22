@@ -1,8 +1,10 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import type { CircuitModel } from '../../core/types';
 import { COLORS, GRID_SIZE } from '../../core/constants';
-import { ComponentSymbol } from './ComponentSymbol';
+import { ComponentSymbol, type PortVisualState } from './ComponentSymbol';
 import { WireRenderer } from './WireRenderer';
+import { routeWire } from '../../core/WireRouter';
+import { resolveAllPorts } from '../../core/PortResolver';
 
 export interface Viewport {
   x: number;
@@ -11,15 +13,30 @@ export interface Viewport {
   height: number;
 }
 
+export interface WiringState {
+  fromComponentId: string;
+  fromPortId: string;
+  cursorSvgX: number;
+  cursorSvgY: number;
+}
+
 interface CircuitRendererProps {
   model: CircuitModel;
   mode: "edit" | "simulate";
   onComponentClick?: (componentId: string) => void;
   onComponentDrag?: (componentId: string, newX: number, newY: number) => void;
   onPortClick?: (componentId: string, portId: string) => void;
+  onPortMouseEnter?: (componentId: string, portId: string) => void;
+  onPortMouseLeave?: (componentId: string, portId: string) => void;
   onCanvasClick?: (svgX: number, svgY: number) => void;
+  onCanvasMouseMove?: (svgX: number, svgY: number) => void;
+  onContextMenu?: () => void;
+  onWireClick?: (wireId: string) => void;
   showGrid?: boolean;
   selectedComponentId?: string | null;
+  selectedWireId?: string | null;
+  wiringState?: WiringState | null;
+  getPortState?: (componentId: string, portId: string) => PortVisualState;
   viewport?: Viewport;
   onViewportChange?: (vp: Viewport) => void;
 }
@@ -44,8 +61,12 @@ function autoFitViewport(model: CircuitModel): Viewport {
 }
 
 export function CircuitRenderer({
-  model, mode, onComponentClick, onComponentDrag, onPortClick, onCanvasClick,
-  showGrid = true, selectedComponentId, viewport, onViewportChange,
+  model, mode, onComponentClick, onComponentDrag,
+  onPortClick, onPortMouseEnter, onPortMouseLeave,
+  onCanvasClick, onCanvasMouseMove, onContextMenu, onWireClick,
+  showGrid = true, selectedComponentId, selectedWireId,
+  wiringState, getPortState,
+  viewport, onViewportChange,
 }: CircuitRendererProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragging, setDragging] = useState<{
@@ -58,7 +79,6 @@ export function CircuitRenderer({
   const isControlled = viewport !== undefined && onViewportChange !== undefined;
   const effectiveVp: Viewport = viewport ?? autoFitViewport(model);
 
-  // Space key tracking for pan-modifier in edit mode
   useEffect(() => {
     if (!isControlled) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -111,7 +131,6 @@ export function CircuitRenderer({
   }, [isControlled, effectiveVp, onViewportChange]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent, componentId?: string) => {
-    // Middle-mouse or Space+left triggers pan (edit mode only)
     if (isControlled && (e.button === 1 || (e.button === 0 && spaceHeld))) {
       panRef.current = {
         startClientX: e.clientX,
@@ -155,18 +174,25 @@ export function CircuitRenderer({
       });
       return;
     }
-    if (!dragging || mode === 'simulate') return;
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    const scaleX = effectiveVp.width / rect.width;
-    const scaleY = effectiveVp.height / rect.height;
-    const dx = e.clientX - dragging.startClientX;
-    const dy = e.clientY - dragging.startClientY;
-    const newX = Math.round(dragging.startCompX + (dx * scaleX) / GRID_SIZE);
-    const newY = Math.round(dragging.startCompY + (dy * scaleY) / GRID_SIZE);
-    onComponentDrag?.(dragging.id, newX, newY);
-  }, [dragging, mode, effectiveVp, onComponentDrag, onViewportChange]);
+    if (dragging && mode === 'edit') {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const scaleX = effectiveVp.width / rect.width;
+      const scaleY = effectiveVp.height / rect.height;
+      const dx = e.clientX - dragging.startClientX;
+      const dy = e.clientY - dragging.startClientY;
+      const newX = Math.round(dragging.startCompX + (dx * scaleX) / GRID_SIZE);
+      const newY = Math.round(dragging.startCompY + (dy * scaleY) / GRID_SIZE);
+      onComponentDrag?.(dragging.id, newX, newY);
+      return;
+    }
+    // Always broadcast cursor svg position so wiring preview can track it
+    if (onCanvasMouseMove) {
+      const pt = clientToSvg(e.clientX, e.clientY);
+      if (pt) onCanvasMouseMove(pt.x, pt.y);
+    }
+  }, [dragging, mode, effectiveVp, onComponentDrag, onViewportChange, onCanvasMouseMove, clientToSvg]);
 
   const handleMouseUp = useCallback(() => {
     setDragging(null);
@@ -188,7 +214,6 @@ export function CircuitRenderer({
     return () => window.removeEventListener('mouseup', up);
   }, []);
 
-  // Grid lines — always cover the full visible viewport
   const gridLines: React.ReactNode[] = [];
   if (showGrid) {
     const gx0 = Math.floor(effectiveVp.x / GRID_SIZE);
@@ -213,7 +238,47 @@ export function CircuitRenderer({
     }
   }
 
-  const cursor = isPanning ? 'grabbing' : (spaceHeld ? 'grab' : (dragging ? 'grabbing' : 'default'));
+  // Rubber band: from source port's resolved position to cursor (or to hovered valid port — parent controls by snapping cursor)
+  let rubberBand: React.ReactNode = null;
+  if (wiringState) {
+    const fromComp = model.components.find((c) => c.id === wiringState.fromComponentId);
+    if (fromComp) {
+      const fromPorts = resolveAllPorts(fromComp);
+      const fromPort = fromPorts.get(wiringState.fromPortId);
+      if (fromPort) {
+        const pts = routeWire(
+          fromPort.absoluteX * GRID_SIZE,
+          fromPort.absoluteY * GRID_SIZE,
+          wiringState.cursorSvgX,
+          wiringState.cursorSvgY,
+        );
+        rubberBand = (
+          <polyline
+            points={pts.map((p) => `${p.x},${p.y}`).join(' ')}
+            stroke={COLORS.selected}
+            strokeOpacity={0.85}
+            strokeWidth={2}
+            strokeDasharray="6 4"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            pointerEvents="none"
+          />
+        );
+      }
+    }
+  }
+
+  const inWiringMode = !!wiringState;
+  const cursor = isPanning
+    ? 'grabbing'
+    : spaceHeld
+      ? 'grab'
+      : dragging
+        ? 'grabbing'
+        : inWiringMode
+          ? 'crosshair'
+          : 'default';
 
   return (
     <svg
@@ -231,9 +296,14 @@ export function CircuitRenderer({
       onWheel={handleWheel}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
+      onContextMenu={(e) => {
+        if (onContextMenu) {
+          e.preventDefault();
+          onContextMenu();
+        }
+      }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
-          // Middle-mouse / space+drag pan on empty canvas
           if (isControlled && (e.button === 1 || (e.button === 0 && spaceHeld))) {
             panRef.current = {
               startClientX: e.clientX,
@@ -245,7 +315,6 @@ export function CircuitRenderer({
             return;
           }
           if (e.button === 0 && !spaceHeld) {
-            // Empty-canvas click: deselect + (optional) forward svg coords for placement
             onComponentClick?.('');
             const pt = clientToSvg(e.clientX, e.clientY);
             if (pt) onCanvasClick?.(pt.x, pt.y);
@@ -256,20 +325,35 @@ export function CircuitRenderer({
       {gridLines}
 
       {model.wires.map((wire) => (
-        <WireRenderer key={wire.id} wire={wire} model={model} />
+        <WireRenderer
+          key={wire.id}
+          wire={wire}
+          model={model}
+          selected={selectedWireId === wire.id}
+          onClick={onWireClick}
+        />
       ))}
+
+      {rubberBand}
 
       {model.components.map((comp) => (
         <g
           key={comp.id}
-          style={{ cursor: mode === 'edit' && !spaceHeld ? 'pointer' : 'default' }}
+          style={{ cursor: mode === 'edit' && !spaceHeld && !inWiringMode ? 'pointer' : 'default' }}
           onMouseDown={(e) => handleMouseDown(e, comp.id)}
         >
           <ComponentSymbol
             component={comp}
             selected={selectedComponentId === comp.id}
-            showPorts={mode === 'edit' && selectedComponentId === comp.id}
+            showPorts={mode === 'edit'}
+            portStates={
+              getPortState
+                ? new Map(comp.ports.map((p) => [p.id, getPortState(comp.id, p.id)]))
+                : undefined
+            }
             onPortClick={(portId) => onPortClick?.(comp.id, portId)}
+            onPortMouseEnter={(portId) => onPortMouseEnter?.(comp.id, portId)}
+            onPortMouseLeave={(portId) => onPortMouseLeave?.(comp.id, portId)}
           />
         </g>
       ))}
