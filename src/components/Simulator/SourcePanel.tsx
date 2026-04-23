@@ -1,4 +1,4 @@
-
+import { useEffect, useRef, useState } from 'react';
 import type { CircuitComponent } from '../../core/types';
 import { COLORS } from '../../core/constants';
 
@@ -13,13 +13,28 @@ export function SourcePanel({ source, onVoltageChange, onFrequencyChange, onFail
   const nomFreq = source.properties.nominalFrequency ?? 60;
   const color = source.state.failed ? COLORS.failed : source.state.energized ? COLORS.energized : COLORS.deenergized;
 
+  const prevFailed = useRef(source.state.failed);
+  const [flashing, setFlashing] = useState(false);
+  useEffect(() => {
+    if (source.state.failed && !prevFailed.current) {
+      setFlashing(true);
+      const t = setTimeout(() => setFlashing(false), 320);
+      prevFailed.current = true;
+      return () => clearTimeout(t);
+    }
+    prevFailed.current = source.state.failed;
+  }, [source.state.failed]);
+
   return (
-    <div style={{
-      background: '#0f172a', border: `1px solid ${color}33`, borderRadius: 6,
-      padding: 12, minWidth: 180,
-    }}>
+    <div
+      className={`source-panel${flashing ? ' flash-fail' : ''}`}
+      style={{
+        background: '#0f172a', border: `1px solid ${color}33`, borderRadius: 6,
+        padding: 12, minWidth: 180,
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 14, color, fontFamily: 'monospace', fontWeight: 600 }}>{source.tag}</span>
+        <span style={{ fontSize: 14, color, fontFamily: 'monospace', fontWeight: 600, transition: 'color 200ms ease' }}>{source.tag}</span>
         <span style={{ fontSize: 11, color: COLORS.textDim, fontFamily: 'monospace', textTransform: 'uppercase' }}>
           {source.type === "utility-source" ? "Utility" : "Generator"}
         </span>
@@ -58,6 +73,7 @@ export function SourcePanel({ source, onVoltageChange, onFrequencyChange, onFail
 
       <button
         onClick={onFailToggle}
+        className={source.state.failed ? 'btn-primary-red' : ''}
         style={{
           width: '100%', padding: '6px 0',
           background: source.state.failed ? '#7f1d1d' : '#1e293b',
@@ -70,7 +86,7 @@ export function SourcePanel({ source, onVoltageChange, onFrequencyChange, onFail
       </button>
 
       <div style={{ marginTop: 8, fontSize: 11, color: COLORS.textDim, fontFamily: 'monospace' }}>
-        Status: <span style={{ color }}>{source.state.failed ? 'FAILED' : source.state.energized ? 'LIVE' : 'STANDBY'}</span>
+        Status: <span style={{ color, transition: 'color 200ms ease' }}>{source.state.failed ? 'FAILED' : source.state.energized ? 'LIVE' : 'STANDBY'}</span>
       </div>
     </div>
   );

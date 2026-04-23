@@ -20,11 +20,12 @@ interface EditorToolbarProps {
   onResetView: () => void;
 }
 
-function Btn({ label, onClick, disabled, color }: { label: string; onClick: () => void; disabled?: boolean; color?: string }) {
+function Btn({ label, onClick, disabled, color, className }: { label: string; onClick: () => void; disabled?: boolean; color?: string; className?: string }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      className={className}
       style={{
         padding: '6px 12px',
         background: color ?? '#1e293b',
@@ -34,7 +35,7 @@ function Btn({ label, onClick, disabled, color }: { label: string; onClick: () =
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontSize: 13,
         fontFamily: 'monospace',
-        opacity: disabled ? 0.5 : 1,
+        opacity: disabled ? 0.4 : 1,
       }}
     >
       {label}
@@ -90,7 +91,7 @@ export function EditorToolbar({
       <Btn label="Fit" onClick={onFit} />
       <Btn label="Reset View" onClick={onResetView} />
       <div style={{ flex: 1 }} />
-      <Btn label="▶ Run Simulation" onClick={onRunSimulation} color="#16a34a" />
+      <Btn label="▶ Run Simulation" onClick={onRunSimulation} color="#16a34a" className="btn-primary-green" />
     </div>
   );
 }

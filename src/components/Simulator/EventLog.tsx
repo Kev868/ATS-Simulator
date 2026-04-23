@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import type { SimEvent } from '../../core/types';
+import type { SimEvent, SimEventType } from '../../core/types';
 import { COLORS } from '../../core/constants';
 
 interface EventLogProps {
@@ -26,6 +26,32 @@ const EVENT_COLORS: Partial<Record<string, string>> = {
   WARNING: COLORS.failed,
   INFO: COLORS.textDim,
 };
+
+function severityClass(t: SimEventType): string {
+  switch (t) {
+    case 'SOURCE_FAILED':
+    case 'SOURCE_UNHEALTHY':
+    case 'BREAKER_TRIPPED':
+    case 'LOCKOUT_ACTIVATED':
+    case 'SYNC_CHECK_FAIL':
+    case 'WARNING':
+      return 'event-entry-alarm';
+    case 'TRANSFER_INITIATED':
+    case 'RETRANSFER_INITIATED':
+    case 'INTERLOCK_BLOCKED':
+    case 'BREAKER_BLOCKED':
+      return 'event-entry-warn';
+    case 'BREAKER_OPENED':
+    case 'BREAKER_CLOSED':
+    case 'TRANSFER_COMPLETE':
+    case 'RETRANSFER_COMPLETE':
+    case 'SOURCE_HEALTHY':
+    case 'SOURCE_RESTORED':
+      return 'event-entry-action';
+    default:
+      return 'event-entry-info';
+  }
+}
 
 export function EventLog({ events }: EventLogProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -86,7 +112,11 @@ export function EventLog({ events }: EventLogProps) {
         {filtered.map((event, i) => {
           const color = EVENT_COLORS[event.type] ?? COLORS.text;
           return (
-            <div key={i} style={{ padding: '3px 12px', borderBottom: '1px solid #0f172a', display: 'flex', gap: 12 }}>
+            <div
+              key={`${event.timestamp}-${i}`}
+              className={`event-entry ${severityClass(event.type)}`}
+              style={{ padding: '3px 12px', borderBottom: '1px solid #0f172a', display: 'flex', gap: 12 }}
+            >
               <span style={{ color: COLORS.textDim, minWidth: 80 }}>{event.timestamp.toFixed(0)}ms</span>
               <span style={{ color, minWidth: 80, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{event.componentTag}</span>
               <span style={{ color }}>{event.message}</span>

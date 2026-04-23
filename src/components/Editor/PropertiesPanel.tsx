@@ -32,7 +32,7 @@ const inputStyle: React.CSSProperties = {
 export function PropertiesPanel({ component, model: _model, onUpdate }: PropertiesPanelProps) {
   if (!component) {
     return (
-      <div style={{ width: 220, background: '#0f172a', borderLeft: '1px solid #1e293b', padding: 16, color: COLORS.textDim, fontSize: 13 }}>
+      <div className="panel-slide-right" style={{ width: 220, background: '#0f172a', borderLeft: '1px solid #1e293b', padding: 16, color: COLORS.textDim, fontSize: 13 }}>
         Select a component to edit its properties.
       </div>
     );
@@ -46,8 +46,9 @@ export function PropertiesPanel({ component, model: _model, onUpdate }: Properti
   };
 
   return (
-    <div style={{ width: 220, background: '#0f172a', borderLeft: '1px solid #1e293b', padding: 16, overflowY: 'auto' }}>
+    <div className="panel-slide-right" style={{ width: 220, background: '#0f172a', borderLeft: '1px solid #1e293b', padding: 16, overflowY: 'auto' }}>
       <div style={{ fontSize: 11, color: COLORS.textDim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>Properties</div>
+      <div key={component.id} className="panel-content-fade">
 
       <Field label="Tag">
         <input
@@ -156,6 +157,7 @@ export function PropertiesPanel({ component, model: _model, onUpdate }: Properti
             </label>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

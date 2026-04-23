@@ -1,4 +1,3 @@
-
 import type { ComponentType } from '../../core/types';
 import { COMPONENT_REGISTRY } from '../../core/ComponentRegistry';
 import { COLORS } from '../../core/constants';
@@ -20,16 +19,19 @@ const PALETTE_TYPES: ComponentType[] = [
 
 export function ComponentPalette({ onSelect, selectedType }: ComponentPaletteProps) {
   return (
-    <div style={{
-      width: 180,
-      background: '#0f172a',
-      borderRight: `1px solid #1e293b`,
-      padding: '8px 0',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 2,
-      overflowY: 'auto',
-    }}>
+    <div
+      className="panel-slide-left"
+      style={{
+        width: 180,
+        background: '#0f172a',
+        borderRight: `1px solid #1e293b`,
+        padding: '8px 0',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        overflowY: 'auto',
+      }}
+    >
       <div style={{ padding: '8px 12px', fontSize: 11, color: COLORS.textDim, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
         Components
       </div>
@@ -40,6 +42,7 @@ export function ComponentPalette({ onSelect, selectedType }: ComponentPalettePro
           <button
             key={type}
             onClick={() => onSelect(type)}
+            className={`palette-item${isSelected ? ' palette-item-selected' : ''}`}
             style={{
               display: 'block',
               width: '100%',

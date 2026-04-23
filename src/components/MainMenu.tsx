@@ -124,6 +124,7 @@ export function MainMenu({ onLoadCircuit, onBuildNew }: MainMenuProps) {
           {PRESETS.map((preset) => (
             <div key={preset.id} style={{ marginBottom: 4 }}>
               <div
+                className="menu-item"
                 onMouseEnter={() => setHovered(preset.id)}
                 onMouseLeave={() => setHovered(null)}
                 style={{
@@ -131,10 +132,8 @@ export function MainMenu({ onLoadCircuit, onBuildNew }: MainMenuProps) {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '10px 14px',
+                  paddingLeft: 20,
                   borderRadius: 6,
-                  background: hovered === preset.id ? '#1e293b' : 'transparent',
-                  border: `1px solid ${hovered === preset.id ? '#334155' : 'transparent'}`,
-                  transition: 'all 0.15s',
                 }}
               >
                 <button
@@ -144,6 +143,7 @@ export function MainMenu({ onLoadCircuit, onBuildNew }: MainMenuProps) {
                     color: hovered === preset.id ? COLORS.text : COLORS.textDim,
                     cursor: 'pointer', fontSize: 15, fontFamily: 'monospace', textAlign: 'left',
                     flex: 1,
+                    transition: 'color 150ms ease',
                   }}
                 >
                   {preset.name}
@@ -153,8 +153,9 @@ export function MainMenu({ onLoadCircuit, onBuildNew }: MainMenuProps) {
                   title="Open in Editor"
                   style={{
                     background: 'none', border: 'none', color: COLORS.textDim,
-                    cursor: 'pointer', fontSize: 12, fontFamily: 'monospace', opacity: hovered === preset.id ? 1 : 0,
-                    transition: 'opacity 0.15s',
+                    cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
+                    opacity: hovered === preset.id ? 1 : 0,
+                    transition: 'opacity 150ms ease',
                   }}
                 >
                   Edit
@@ -194,14 +195,18 @@ export function MainMenu({ onLoadCircuit, onBuildNew }: MainMenuProps) {
         {/* Preview panel */}
         <div style={{ width: 320, minHeight: 200 }}>
           {hoveredPreset ? (
-            <div style={{
-              background: '#0a0f1a', border: '1px solid #1e293b', borderRadius: 8, padding: 20,
-            }}>
+            <div
+              key={hoveredPreset.id}
+              className="menu-preview"
+              style={{
+                background: '#0a0f1a', border: '1px solid #1e293b', borderRadius: 8, padding: 20,
+              }}
+            >
               <div style={{ fontSize: 16, color: COLORS.text, marginBottom: 8 }}>{hoveredPreset.name}</div>
               <div style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.6 }}>{hoveredPreset.description}</div>
             </div>
           ) : (
-            <div style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.8 }}>
+            <div key="features" className="menu-preview" style={{ fontSize: 13, color: COLORS.textDim, lineHeight: 1.8 }}>
               <div style={{ marginBottom: 16, fontSize: 12, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Features</div>
               <div>✓ Graph-based energization solver</div>
               <div>✓ ATS transfer FSM (open/closed/fast)</div>
