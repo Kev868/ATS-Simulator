@@ -1,6 +1,6 @@
 # ATS Simulator
 
-A production-quality Automatic Transfer Switch (ATS) simulator built with React 18, TypeScript, and Vite. Simulates real-world ATS scheme logic with ANSI protective relay functions, configurable setpoints, and interactive one-line diagrams. Can be utilised similarly to CAD software in creating own simulations.
+A production-quality Automatic Transfer Switch (ATS) simulator built with React 18, TypeScript, and Vite. Simulates real-world ATS scheme logic with ANSI protective relay functions, configurable setpoints, and interactive one-line diagrams. Can be utilised similarly to CAD software in creating own simulations. Will be edited soon to be hosted publically rather than locally
 
 ---
 
